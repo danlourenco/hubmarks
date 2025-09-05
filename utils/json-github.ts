@@ -135,7 +135,7 @@ export class JSONGitHubClient {
           
           // Exponential backoff with jitter
           const delay = Math.min(250 * Math.pow(3, attempt) + Math.random() * 100, 5000);
-          await new Promise(resolve => setTimeout(resolve, delay));
+          await this.createDelay(delay);
           
           // Re-fetch current state for next attempt
           try {
@@ -407,5 +407,38 @@ export class JSONGitHubClient {
       }
       throw error;
     }
+  }
+
+  /**
+   * Create a delay that works in both browser and Node.js environments
+   * Uses chrome.alarms in browser extensions for MV3 compliance
+   * Falls back to setTimeout for test environments
+   * 
+   * @param delayMs - Delay in milliseconds
+   * @returns Promise that resolves after the delay
+   */
+  private createDelay(delayMs: number): Promise<void> {
+    // Check if we're in a browser extension environment with chrome.alarms
+    if (typeof chrome !== 'undefined' && chrome.alarms) {
+      return new Promise((resolve) => {
+        const alarmName = `json-github-retry-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const delayMinutes = Math.max(0.1, delayMs / 60000); // Convert to minutes, minimum 0.1
+        
+        const listener = (alarm: chrome.alarms.Alarm) => {
+          if (alarm.name === alarmName) {
+            chrome.alarms.onAlarm.removeListener(listener);
+            resolve();
+          }
+        };
+        
+        chrome.alarms.onAlarm.addListener(listener);
+        chrome.alarms.create(alarmName, {
+          delayInMinutes: delayMinutes
+        });
+      });
+    }
+    
+    // Fallback to setTimeout for test environments or when chrome.alarms not available
+    return new Promise(resolve => setTimeout(resolve, delayMs));
   }
 }
