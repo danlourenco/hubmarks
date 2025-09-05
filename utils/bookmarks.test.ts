@@ -231,11 +231,11 @@ describe('BookmarkManager', () => {
   });
 
   describe('createBookmark', () => {
-    it.skip('should create bookmark in browser and return normalized format', async () => {
+    it('should create bookmark in browser and return normalized format', async () => {
       const newBookmark: Partial<NormalizedBookmark> = {
         title: 'New Bookmark',
         url: 'https://example.com',
-        folderPath: 'Bookmarks Bar/Test',
+        folderPath: 'Test',  // Changed: Just 'Test', not 'Bookmarks Bar/Test'
         tags: ['test', 'example'],
         notes: 'Test bookmark'
       };
@@ -251,8 +251,7 @@ describe('BookmarkManager', () => {
       }]);
 
       mockBrowser.bookmarks.getChildren
-        .mockResolvedValueOnce([]) // No Test folder exists
-        .mockResolvedValueOnce([]); // Empty Test folder
+        .mockResolvedValueOnce([]); // No Test folder exists in bookmarks bar
 
       const now = Date.now();
       mockBrowser.bookmarks.create
