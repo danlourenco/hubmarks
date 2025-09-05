@@ -2,6 +2,9 @@ import { getSyncManager } from '~/utils/sync';
 import { storageManager } from '~/utils/storage';
 import { bookmarkManager } from '~/utils/bookmarks';
 
+// WXT storage definitions for MV3 compatibility
+const pendingSyncReason = storage.defineItem<string>('local:pendingSyncReason');
+
 /**
  * Background service worker for HubMark extension
  * 
@@ -100,7 +103,7 @@ export default defineBackground(() => {
     });
     
     // Store the reason in storage for the alarm handler
-    storageManager.set('pendingSyncReason', reason).catch(console.error);
+    pendingSyncReason.setValue(reason).catch(console.error);
   }
 
   /**
@@ -390,7 +393,7 @@ export default defineBackground(() => {
   // Handle chrome alarms for debounced sync
   chrome.alarms.onAlarm.addListener(async (alarm) => {
     if (alarm.name === debounceAlarmName) {
-      const reason = await storageManager.get('pendingSyncReason') || 'Bookmark change';
+      const reason = await pendingSyncReason.getValue() || 'Bookmark change';
       console.log(`Triggering sync: ${reason}`);
       
       try {
@@ -414,7 +417,7 @@ export default defineBackground(() => {
       }
       
       // Clear the pending sync reason
-      await storageManager.remove('pendingSyncReason');
+      await pendingSyncReason.removeValue();
     }
   });
   

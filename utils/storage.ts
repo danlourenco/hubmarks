@@ -87,20 +87,6 @@ class StorageManager {
     await browser.storage.local.clear();
     await browser.storage.sync.clear();
   }
-
-  // Generic storage helpers for simple key-value operations
-  async get(key: string): Promise<any> {
-    const result = await browser.storage.local.get(key);
-    return result[key];
-  }
-
-  async set(key: string, value: any): Promise<void> {
-    await browser.storage.local.set({ [key]: value });
-  }
-
-  async remove(key: string): Promise<void> {
-    await browser.storage.local.remove(key);
-  }
 }
 
 export const storageManager = new StorageManager();
