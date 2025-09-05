@@ -2,6 +2,9 @@ import { getSyncManager } from '~/utils/sync';
 import { storageManager } from '~/utils/storage';
 import { bookmarkManager } from '~/utils/bookmarks';
 
+// WXT storage definitions for MV3 compatibility
+const pendingSyncReason = storage.defineItem<string>('local:pendingSyncReason');
+
 /**
  * Background service worker for HubMark extension
  * 
@@ -19,7 +22,7 @@ export default defineBackground(() => {
   });
 
   let syncManager: Awaited<ReturnType<typeof getSyncManager>> | null = null;
-  let bookmarkChangeTimeout: NodeJS.Timeout | null = null;
+  const debounceAlarmName = 'hubmark-debounce-sync';
 
   /**
    * Initialize the background service
@@ -85,40 +88,22 @@ export default defineBackground(() => {
   }
 
   /**
-   * Schedule a sync operation with debouncing
+   * Schedule a sync operation with debouncing using Chrome alarms (MV3 compatible)
    * 
    * @param reason - Reason for the sync
    */
   function scheduleSync(reason: string): void {
-    // Clear existing timeout to debounce rapid changes
-    if (bookmarkChangeTimeout) {
-      clearTimeout(bookmarkChangeTimeout);
-    }
+    // Clear existing alarm to debounce rapid changes
+    chrome.alarms.clear(debounceAlarmName);
 
     // Schedule sync after a short delay to batch changes
-    bookmarkChangeTimeout = setTimeout(async () => {
-      console.log(`Triggering sync: ${reason}`);
-      
-      try {
-        if (syncManager) {
-          await syncManager.queueOperation({
-            type: 'sync',
-            config: {
-              direction: 'bidirectional',
-              strategy: 'latest-wins',
-              batchSize: 50,
-              retryAttempts: 3,
-              retryDelay: 1000,
-            }
-          });
-          
-          await updateBadge();
-        }
-      } catch (error) {
-        console.error('Sync operation failed:', error);
-        await updateBadge('error');
-      }
-    }, 2000); // 2 second debounce
+    // Note: Chrome alarms minimum is typically 1 minute in production, but shorter delays work in development
+    chrome.alarms.create(debounceAlarmName, {
+      delayInMinutes: 0.033 // ~2 seconds (will be rounded up to minimum in production)
+    });
+    
+    // Store the reason in storage for the alarm handler
+    pendingSyncReason.setValue(reason).catch(console.error);
   }
 
   /**
@@ -405,19 +390,40 @@ export default defineBackground(() => {
     initialize();
   });
 
-  // Handle extension suspension (when background becomes inactive)
-  browser.runtime.onSuspend?.addListener(() => {
-    console.log('Background script suspending...');
-    
-    // Clean up timers
-    if (bookmarkChangeTimeout) {
-      clearTimeout(bookmarkChangeTimeout);
-    }
-    
-    if (syncManager) {
-      syncManager.stopScheduledSync();
+  // Handle chrome alarms for debounced sync
+  chrome.alarms.onAlarm.addListener(async (alarm) => {
+    if (alarm.name === debounceAlarmName) {
+      const reason = await pendingSyncReason.getValue() || 'Bookmark change';
+      console.log(`Triggering sync: ${reason}`);
+      
+      try {
+        if (syncManager) {
+          await syncManager.queueOperation({
+            type: 'sync',
+            config: {
+              direction: 'bidirectional',
+              strategy: 'latest-wins',
+              batchSize: 50,
+              retryAttempts: 3,
+              retryDelay: 1000,
+            }
+          });
+          
+          await updateBadge();
+        }
+      } catch (error) {
+        console.error('Sync operation failed:', error);
+        await updateBadge('error');
+      }
+      
+      // Clear the pending sync reason
+      await pendingSyncReason.removeValue();
     }
   });
+  
+  // Note: onSuspend is not available in MV3 service workers
+  // Service workers automatically suspend/resume as needed
+  // Chrome alarms persist across suspensions
 
   // Initialize immediately
   initialize();

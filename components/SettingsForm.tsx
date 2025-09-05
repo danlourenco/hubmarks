@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSettings } from '~/hooks/useSettings';
 import type { ExtensionSettings } from '~/utils/storage';
 
@@ -34,6 +34,7 @@ export function SettingsForm({ onSave, className = '' }: SettingsFormProps) {
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const saveMessageTimeoutRef = useRef<number | null>(null);
 
   // Update form data when settings load
   useEffect(() => {
@@ -41,6 +42,15 @@ export function SettingsForm({ onSave, className = '' }: SettingsFormProps) {
       setFormData(settings);
     }
   }, [settings]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (saveMessageTimeoutRef.current) {
+        clearTimeout(saveMessageTimeoutRef.current);
+      }
+    };
+  }, []);
 
   /**
    * Handle form field changes
@@ -59,11 +69,20 @@ export function SettingsForm({ onSave, className = '' }: SettingsFormProps) {
     setIsSaving(true);
     setSaveMessage(null);
 
+    // Clear any existing timeout
+    if (saveMessageTimeoutRef.current) {
+      clearTimeout(saveMessageTimeoutRef.current);
+    }
+
     const success = await saveSettings(formData);
     
     if (success) {
       setSaveMessage('Settings saved successfully');
-      setTimeout(() => setSaveMessage(null), 3000);
+      // Use ref to store timeout ID for proper cleanup
+      saveMessageTimeoutRef.current = window.setTimeout(() => {
+        setSaveMessage(null);
+        saveMessageTimeoutRef.current = null;
+      }, 3000);
       onSave?.();
     }
     
