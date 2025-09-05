@@ -81,8 +81,9 @@ export class SyncManager {
   private githubClient: GitHubClient | null = null;
   private syncQueue: QueuedOperation[] = [];
   private isProcessingQueue = false;
-  private syncInterval: NodeJS.Timeout | null = null;
+  private syncAlarmName = 'hubmark-sync-alarm';
   private currentSyncPromise: Promise<SyncResult> | null = null;
+  private alarmListener: ((alarm: chrome.alarms.Alarm) => void) | null = null;
 
   private readonly defaultConfig: SyncConfig = {
     direction: 'bidirectional',
@@ -413,30 +414,61 @@ export class SyncManager {
     try {
       // Apply changes to GitHub
       if (changes.toGitHub.length > 0 && this.githubClient) {
-        const markdown = generateMarkdownContent(changes.toGitHub, 'folder');
+        let existingBookmarks: StoredBookmark[] = [];
+        let existingSha: string | undefined;
         
         try {
-          // Try to update existing file
+          // Always read current remote file to get full bookmark set
           const existing = await this.githubClient.getFileContent('bookmarks.md');
+          existingBookmarks = parseMarkdownContent(existing.content);
+          existingSha = existing.sha;
+        } catch (error: any) {
+          if (!error.message.includes('not found')) {
+            throw error;
+          }
+          // File doesn't exist yet - will create new
+        }
+        
+        // Merge changes with existing bookmarks
+        const bookmarkMap = new Map(existingBookmarks.map(b => [b.id, b]));
+        
+        // Add/update bookmarks from changes
+        for (const bookmark of changes.toGitHub) {
+          const existing = bookmarkMap.get(bookmark.id);
+          if (existing) {
+            modified++;
+          } else {
+            added++;
+          }
+          bookmarkMap.set(bookmark.id, bookmark);
+        }
+        
+        // Apply deletions if any
+        for (const deleteId of changes.toDelete || []) {
+          if (bookmarkMap.delete(deleteId)) {
+            deleted++;
+          }
+        }
+        
+        // Generate markdown from complete merged set
+        const allBookmarks = Array.from(bookmarkMap.values());
+        const markdown = generateMarkdownContent(allBookmarks, 'folder');
+        
+        if (existingSha) {
+          // Update existing file with complete set
           await this.githubClient.updateFile(
             'bookmarks.md',
             markdown,
-            `chore: sync ${changes.toGitHub.length} bookmarks to GitHub`,
-            existing.sha
+            `chore: sync bookmarks (+${added} ~${modified} -${deleted})`,
+            existingSha
           );
-          modified += changes.toGitHub.length;
-        } catch (error: any) {
-          if (error.message.includes('not found')) {
-            // Create new file
-            await this.githubClient.createFile(
-              'bookmarks.md',
-              markdown,
-              'feat: initial bookmark sync to GitHub'
-            );
-            added += changes.toGitHub.length;
-          } else {
-            throw error;
-          }
+        } else {
+          // Create new file
+          await this.githubClient.createFile(
+            'bookmarks.md',
+            markdown,
+            'feat: initial bookmark sync to GitHub'
+          );
         }
       }
 
@@ -465,33 +497,61 @@ export class SyncManager {
   }
 
   /**
-   * Schedule periodic sync operations
+   * Schedule periodic sync operations using chrome.alarms API (MV3 compatible)
    * 
    * @param intervalMs - Sync interval in milliseconds
    */
   scheduleSync(intervalMs: number): void {
-    // Clear existing interval
-    if (this.syncInterval) {
-      clearInterval(this.syncInterval);
+    // Check if Chrome APIs are available (browser environment)
+    if (typeof chrome === 'undefined' || !chrome.alarms) {
+      console.warn('Chrome alarms API not available - sync scheduling disabled');
+      return;
     }
 
-    // Set up new interval
-    this.syncInterval = setInterval(async () => {
-      try {
-        await this.performSync();
-      } catch (error) {
-        console.error('Scheduled sync failed:', error);
+    // Clear existing alarm
+    this.stopScheduledSync();
+
+    // Set up alarm listener
+    this.alarmListener = (alarm: chrome.alarms.Alarm) => {
+      if (alarm.name === this.syncAlarmName) {
+        this.performSync().catch(error => {
+          console.error('Scheduled sync failed:', error);
+        });
       }
-    }, intervalMs);
+    };
+
+    // Add listener
+    if (chrome.alarms.onAlarm.hasListener(this.alarmListener)) {
+      chrome.alarms.onAlarm.removeListener(this.alarmListener);
+    }
+    chrome.alarms.onAlarm.addListener(this.alarmListener);
+
+    // Create repeating alarm (convert milliseconds to minutes)
+    const intervalMinutes = Math.max(1, Math.round(intervalMs / 60000));
+    chrome.alarms.create(this.syncAlarmName, {
+      delayInMinutes: intervalMinutes,
+      periodInMinutes: intervalMinutes
+    });
   }
 
   /**
-   * Stop scheduled sync operations
+   * Stop scheduled sync operations (MV3 compatible)
    */
   stopScheduledSync(): void {
-    if (this.syncInterval) {
-      clearInterval(this.syncInterval);
-      this.syncInterval = null;
+    // Check if Chrome APIs are available (browser environment)
+    if (typeof chrome === 'undefined' || !chrome.alarms) {
+      return;
+    }
+
+    // Clear alarm
+    chrome.alarms.clear(this.syncAlarmName);
+    
+    // Remove listener
+    if (this.alarmListener) {
+      if (chrome.alarms.onAlarm.hasListener(this.alarmListener)) {
+        chrome.alarms.onAlarm.removeListener(this.alarmListener);
+      }
+      this.alarmListener = null;
     }
   }
 
@@ -536,22 +596,74 @@ export class SyncManager {
           operation.attempts++;
           
           if (operation.attempts < this.defaultConfig.retryAttempts) {
-            // Retry with exponential backoff
-            const delay = this.defaultConfig.retryDelay * Math.pow(2, operation.attempts - 1);
-            setTimeout(() => {
-              this.syncQueue.unshift(operation);
-            }, delay);
+            // Retry with exponential backoff using chrome.alarms (MV3 compatible)
+            const delayMs = this.defaultConfig.retryDelay * Math.pow(2, operation.attempts - 1);
+            
+            if (typeof chrome === 'undefined' || !chrome.alarms) {
+              // Fallback to setTimeout in test environment
+              setTimeout(() => {
+                this.syncQueue.unshift(operation);
+              }, delayMs);
+            } else {
+              // Use chrome.alarms in browser environment
+              const retryAlarmName = `hubmark-retry-${operation.id}`;
+              const retryDelayMinutes = Math.max(0.1, delayMs / 60000); // Convert to minutes, minimum 0.1
+              
+              const retryListener = (alarm: chrome.alarms.Alarm) => {
+                if (alarm.name === retryAlarmName) {
+                  // Remove this specific listener
+                  chrome.alarms.onAlarm.removeListener(retryListener);
+                  // Add operation back to queue
+                  this.syncQueue.unshift(operation);
+                }
+              };
+              
+              chrome.alarms.onAlarm.addListener(retryListener);
+              chrome.alarms.create(retryAlarmName, {
+                delayInMinutes: retryDelayMinutes
+              });
+            }
           } else {
             console.error(`Operation ${operation.id} failed after ${operation.attempts} attempts:`, error);
           }
         }
         
-        // Small delay between operations to prevent rate limiting
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Small delay between operations to prevent rate limiting (MV3 compatible)
+        await this.createMV3Delay(100);
       }
     } finally {
       this.isProcessingQueue = false;
     }
+  }
+
+  /**
+   * Create MV3-compatible delay using chrome.alarms API
+   * 
+   * @param delayMs - Delay in milliseconds
+   * @returns Promise that resolves after the delay
+   */
+  private createMV3Delay(delayMs: number): Promise<void> {
+    // Fallback to setTimeout in test environment
+    if (typeof chrome === 'undefined' || !chrome.alarms) {
+      return new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+
+    return new Promise((resolve) => {
+      const delayAlarmName = `hubmark-delay-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const delayMinutes = Math.max(0.1, delayMs / 60000); // Convert to minutes, minimum 0.1
+      
+      const delayListener = (alarm: chrome.alarms.Alarm) => {
+        if (alarm.name === delayAlarmName) {
+          chrome.alarms.onAlarm.removeListener(delayListener);
+          resolve();
+        }
+      };
+      
+      chrome.alarms.onAlarm.addListener(delayListener);
+      chrome.alarms.create(delayAlarmName, {
+        delayInMinutes: delayMinutes
+      });
+    });
   }
 
   /**

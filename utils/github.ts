@@ -1,5 +1,6 @@
 import { Octokit } from '@octokit/rest';
 import type { StoredBookmark, GitHubConfig } from './storage';
+import { encodeBase64, decodeBase64 } from './base64';
 
 /**
  * Repository information returned by GitHub API
@@ -168,7 +169,7 @@ export class GitHubClient {
         repo: this.config.repoName,
         path,
         message,
-        content: Buffer.from(content, 'utf8').toString('base64'),
+        content: encodeBase64(content),
         branch,
       });
 
@@ -201,7 +202,7 @@ export class GitHubClient {
         repo: this.config.repoName,
         path,
         message,
-        content: Buffer.from(content, 'utf8').toString('base64'),
+        content: encodeBase64(content),
         sha,
         branch,
       });
@@ -264,7 +265,7 @@ export class GitHubClient {
       }
 
       const content = result.encoding === 'base64' 
-        ? Buffer.from(result.content, 'base64').toString('utf8')
+        ? decodeBase64(result.content)
         : result.content;
 
       return {

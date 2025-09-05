@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { fakeBrowser } from '@webext-core/fake-browser';
 import type { StoredBookmark, GitHubConfig } from './storage';
 
 // Mock all dependencies with factory functions
@@ -43,6 +44,9 @@ describe('SyncManager', () => {
   let syncManager: SyncManager;
 
   beforeEach(async () => {
+    // Reset fake browser state (WXT best practice)
+    fakeBrowser.reset();
+    
     vi.clearAllMocks();
     
     // Default mock returns

@@ -1,4 +1,5 @@
 import type { StoredBookmark } from './storage';
+import { generateStableId } from './stable-id';
 
 /**
  * Browser-specific bookmark format (Chrome/Firefox/Edge WebExtensions API)
@@ -204,22 +205,58 @@ export class BookmarkManager {
   }
 
   /**
-   * Generate a stable ID that works across browsers
-   * Uses hash of URL + title for consistency
+   * Generate a stable ID for a bookmark based on URL and title
+   * 
+   * Uses a simplified version of the stable ID algorithm for synchronous operation.
+   * This removes the timestamp dependency while maintaining deterministic IDs.
+   * 
+   * Note: For full canonical URL processing, use the async generateStableId from utils/stable-id
    * 
    * @param url - Bookmark URL
-   * @param title - Bookmark title
-   * @returns Stable ID string
+   * @param title - Bookmark title  
+   * @returns Stable ID string (deterministic, no timestamps)
    */
   private generateStableId(url: string, title: string): string {
-    const combined = `${url}::${title}`;
+    // Simple URL normalization (basic version of canonicalUrl)
+    let normalizedUrl = url.toLowerCase().trim();
+    
+    // Remove common tracking parameters
+    const trackingParams = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'gclid', 'fbclid', 'ref'];
+    try {
+      const urlObj = new URL(normalizedUrl);
+      trackingParams.forEach(param => urlObj.searchParams.delete(param));
+      
+      // Remove www prefix
+      urlObj.hostname = urlObj.hostname.replace(/^www\./, '');
+      
+      // Remove trailing slash (except root)
+      if (urlObj.pathname !== '/' && urlObj.pathname.endsWith('/')) {
+        urlObj.pathname = urlObj.pathname.slice(0, -1);
+      }
+      
+      normalizedUrl = urlObj.toString();
+    } catch (error) {
+      // If URL parsing fails, use the original with basic cleanup
+      normalizedUrl = url.trim().toLowerCase();
+    }
+    
+    // Normalize title
+    const normalizedTitle = title.trim().replace(/\s+/g, ' ');
+    
+    // Create composite key
+    const combined = `${normalizedUrl}::${normalizedTitle}`;
+    
+    // Generate stable hash (improved algorithm, no timestamp)
     let hash = 0;
     for (let i = 0; i < combined.length; i++) {
       const char = combined.charCodeAt(i);
       hash = ((hash << 5) - hash) + char;
       hash = hash & hash; // Convert to 32-bit integer
     }
-    return `hm_${Math.abs(hash).toString(36)}_${Date.now().toString(36)}`;
+    
+    // Create stable ID without timestamp
+    const stableHash = Math.abs(hash).toString(36).padStart(8, '0');
+    return `hm_${stableHash}`;
   }
 
   /**
