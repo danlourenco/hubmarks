@@ -4,30 +4,21 @@ The HubMark extension is built on four core utilities that handle different aspe
 
 ## Architecture Overview
 
-```
-┌──────────────────────────────────────────────────────────┐
-│                    Sync Orchestration                    │
-│  ┌─────────────────────────────────────────────────────┐ │
-│  │                 sync.ts                             │ │
-│  │  • Orchestrates sync operations                     │ │
-│  │  • Handles conflict resolution                      │ │
-│  │  │  • Schedules sync intervals                       │ │
-│  └─────────────────────────────────────────────────────┘ │
-└──────────────────────────────────────────────────────────┘
-                              │
-                    ┌─────────┼─────────┐
-                    │         │         │
-┌───────────────────▼──┐ ┌────▼────────┐ ┌──▼──────────────┐
-│     storage.ts       │ │bookmarks.ts │ │   github.ts     │
-│                      │ │             │ │                 │
-│ • Extension settings │ │ • Browser   │ │ • GitHub API    │
-│ • Local bookmark     │ │   bookmark  │ │ • Repository    │
-│   cache              │ │   APIs      │ │   operations    │
-│ • Configuration      │ │ • Cross-    │ │ • Markdown      │
-│   management         │ │   browser   │ │   conversion    │
-│ • Sync metadata      │ │   translation │ │ • File CRUD     │
-│                      │ │ • ID mapping│ │   operations    │
-└──────────────────────┘ └─────────────┘ └─────────────────┘
+```mermaid
+graph TB
+    subgraph "Sync Orchestration"
+        A[sync.ts<br/>• Orchestrates sync operations<br/>• Handles conflict resolution<br/>• Schedules sync intervals]
+    end
+    
+    subgraph "Core Utilities"
+        B[storage.ts<br/>• Extension settings<br/>• Local bookmark cache<br/>• Configuration management<br/>• Sync metadata]
+        C[bookmarks.ts<br/>• Browser bookmark APIs<br/>• Cross-browser translation<br/>• ID mapping<br/>• Metadata extraction]
+        D[github.ts<br/>• GitHub API<br/>• Repository operations<br/>• Markdown conversion<br/>• File CRUD operations]
+    end
+    
+    A --> B
+    A --> C  
+    A --> D
 ```
 
 ## Utility Responsibilities
@@ -85,10 +76,13 @@ The HubMark extension is built on four core utilities that handle different aspe
 
 ## Data Flow Between Utilities
 
-```
-Browser Bookmarks ←→ Bookmark Manager ←→ Storage Manager
-                                            ↕
-                    Sync Manager ←→ GitHub Client ←→ GitHub API
+```mermaid
+graph LR
+    A[Browser Bookmarks] <--> B[Bookmark Manager]
+    B <--> C[Storage Manager]
+    C <--> D[Sync Manager]
+    D <--> E[GitHub Client]
+    E <--> F[GitHub API]
 ```
 
 ### Example: Adding a New Bookmark

@@ -4,36 +4,28 @@ The Bookmark Manager (`utils/bookmarks.ts`) provides a cross-browser translation
 
 ## Cross-Browser Translation Layer
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                Browser APIs (Input)                     │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────────────┐ │
-│  │   Chrome    │ │  Firefox    │ │   Safari/Edge       │ │
-│  │ chrome.     │ │  browser.   │ │   browser.          │ │
-│  │ bookmarks   │ │  bookmarks  │ │   bookmarks         │ │
-│  └─────────────┘ └─────────────┘ └─────────────────────┘ │
-└─────────────────────────────────────────────────────────┘
-                          │
-                          ▼
-┌─────────────────────────────────────────────────────────┐
-│            Bookmark Manager Translation Layer           │
-│  ┌─────────────────────────────────────────────────────┐ │
-│  │            Normalized Format                        │ │
-│  │  • Stable IDs (content-based hashing)              │ │
-│  │  • Unified folder path representation              │ │
-│  │  • Metadata extraction (tags, notes)               │ │
-│  │  • Browser ID mapping for sync-back                │ │
-│  └─────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────┘
-                          │
-                          ▼
-┌─────────────────────────────────────────────────────────┐
-│                Output Formats                           │
-│  ┌─────────────────┐  ┌─────────────────────────────────┐ │
-│  │ StoredBookmark  │  │      GitHub Markdown           │ │
-│  │ (Extension)     │  │      (Repository)              │ │
-│  └─────────────────┘  └─────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph "Browser APIs Input"
+        A[Chrome<br/>chrome.bookmarks]
+        B[Firefox<br/>browser.bookmarks]
+        C[Safari/Edge<br/>browser.bookmarks]
+    end
+    
+    subgraph "Translation Layer"
+        D[Bookmark Manager<br/>• Stable IDs content-based hashing<br/>• Unified folder path representation<br/>• Metadata extraction tags, notes<br/>• Browser ID mapping for sync-back]
+    end
+    
+    subgraph "Output Formats"
+        E[StoredBookmark<br/>Extension]
+        F[GitHub Markdown<br/>Repository]
+    end
+    
+    A --> D
+    B --> D
+    C --> D
+    D --> E
+    D --> F
 ```
 
 ## Core Problem Solved
@@ -166,21 +158,21 @@ The mapping enables:
 
 ### Hierarchical Path Representation
 
-```javascript
-// Browser tree structure:
-Bookmarks Bar/
-  ├── Development/
-  │   ├── JavaScript/
-  │   │   └── React Docs
-  │   └── Python/
-  └── Personal/
-
-// Normalized paths:
-"Development/JavaScript"  // For React Docs
-"Development"            // For Python folder items
-"Personal"              // For Personal folder items
-""                      // For Bookmarks Bar root items
+**Browser Tree Structure Example**:
 ```
+Bookmarks Bar/
+  Development/
+    JavaScript/
+      React Docs
+    Python/
+  Personal/
+```
+
+**Normalized Folder Paths**:
+- `"Development/JavaScript"` - For React Docs
+- `"Development"` - For Python folder items  
+- `"Personal"` - For Personal folder items
+- `""` - For Bookmarks Bar root items
 
 ### Folder Creation Logic
 

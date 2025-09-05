@@ -4,32 +4,19 @@ The GitHub Client (`utils/github.ts`) handles all GitHub API operations, reposit
 
 ## Architecture Overview
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                   GitHub Client                         │
-│  ┌─────────────────┐  ┌─────────────────────────────────┐ │
-│  │  Repository     │  │    File Operations              │ │
-│  │  Management     │  │                                 │ │
-│  │  • Create       │  │  • Create/Update/Delete         │ │
-│  │  • List         │  │  • Get Content                  │ │
-│  │  • Info         │  │  • List Files                   │ │
-│  │  • Auth         │  │  • Branch Operations            │ │
-│  └─────────────────┘  └─────────────────────────────────┘ │
-│                                                          │
-│  ┌─────────────────────────────────────────────────────┐ │
-│  │            Data Transformation                      │ │
-│  │  • Bookmarks → Markdown                             │ │
-│  │  • Markdown → Bookmarks                             │ │
-│  │  • Filename Sanitization                            │ │
-│  │  • Commit Message Generation                        │ │
-│  └─────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────┘
-                          │
-                          ▼
-┌─────────────────────────────────────────────────────────┐
-│                 Octokit REST API                        │
-│  • Authentication • Repository CRUD • File Operations   │
-└─────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph "GitHub Client"
+        A[Repository Management<br/>• Create<br/>• List<br/>• Info<br/>• Auth]
+        B[File Operations<br/>• Create/Update/Delete<br/>• Get Content<br/>• List Files<br/>• Branch Operations]
+        C[Data Transformation<br/>• Bookmarks → Markdown<br/>• Markdown → Bookmarks<br/>• Filename Sanitization<br/>• Commit Message Generation]
+    end
+    
+    D[Octokit REST API<br/>• Authentication<br/>• Repository CRUD<br/>• File Operations]
+    
+    A --> D
+    B --> D
+    C --> D
 ```
 
 ## Core Responsibilities
@@ -369,17 +356,17 @@ Common error scenarios handled:
 
 ```
 my-bookmarks/
-├── README.md                 # Repository description
-├── bookmarks/
-│   ├── development.md        # Development bookmarks
-│   ├── personal.md           # Personal bookmarks  
-│   ├── work.md               # Work-related bookmarks
-│   └── categories/
-│       ├── javascript.md     # Language-specific
-│       ├── python.md
-│       └── tools.md
-└── archive/
-    └── old-bookmarks.md      # Archived bookmarks
+  README.md                 # Repository description
+  bookmarks/
+    development.md          # Development bookmarks
+    personal.md             # Personal bookmarks  
+    work.md                 # Work-related bookmarks
+    categories/
+      javascript.md         # Language-specific
+      python.md
+      tools.md
+  archive/
+    old-bookmarks.md        # Archived bookmarks
 ```
 
 ### File Naming Strategy

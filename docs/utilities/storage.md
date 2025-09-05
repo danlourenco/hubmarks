@@ -4,21 +4,17 @@ The Storage Manager (`utils/storage.ts`) provides a unified interface for managi
 
 ## Overview
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                  Storage Manager                        │
-│  ┌─────────────────┐  ┌─────────────────┐              │
-│  │  Sync Storage   │  │  Local Storage  │              │
-│  │   (Settings)    │  │  (Bookmarks)    │              │
-│  └─────────────────┘  └─────────────────┘              │
-└─────────────────────────────────────────────────────────┘
-                          │
-                ┌─────────┼─────────┐
-                │         │         │
-        ┌───────▼───┐ ┌───▼───┐ ┌───▼─────┐
-        │ Settings  │ │Bookmarks│ │ Metadata │
-        │ Management│ │  Cache  │ │ Tracking │
-        └───────────┘ └─────────┘ └─────────┘
+```mermaid
+graph TB
+    subgraph "Storage Manager"
+        A[Sync Storage<br/>Settings]
+        B[Local Storage<br/>Bookmarks]
+    end
+    
+    A --> C[Settings Management]
+    A --> D[Metadata Tracking]
+    B --> E[Bookmarks Cache]
+    B --> D
 ```
 
 ## Data Storage Strategy
