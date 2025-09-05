@@ -1,14 +1,10 @@
 import { GitHubClient } from './github';
 import { HubMarkData, HubMarkBookmark, schemaValidator, createEmptyData } from './json-schema';
 import type { GitHubConfig } from './storage';
+import type { ConflictStrategy } from './sync';
 
 // Re-export base64 functions for consistency
 export { encodeBase64 as browserSafeEncode, decodeBase64 as browserSafeDecode } from './base64';
-
-/**
- * Conflict resolution strategies for sync operations
- */
-export type ConflictStrategy = 'latest-wins' | 'local-wins' | 'github-wins' | 'manual';
 
 /**
  * Conflict information
