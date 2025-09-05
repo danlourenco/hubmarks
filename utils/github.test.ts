@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { encodeBase64 } from './base64';
 import { 
   GitHubClient, 
   validateGitHubToken,
@@ -242,7 +243,7 @@ describe('GitHubClient', () => {
         repo: 'test-bookmarks',
         path: 'bookmarks.md',
         message: 'Add bookmarks file',
-        content: Buffer.from('# My Bookmarks', 'utf8').toString('base64'),
+        content: encodeBase64('# My Bookmarks'),
         branch: undefined,
       });
     });
@@ -273,7 +274,7 @@ describe('GitHubClient', () => {
         repo: 'test-bookmarks',
         path: 'bookmarks.md',
         message: 'Update bookmarks',
-        content: Buffer.from('# Updated Bookmarks', 'utf8').toString('base64'),
+        content: encodeBase64('# Updated Bookmarks'),
         sha: 'abc123',
         branch: undefined,
       });
@@ -299,7 +300,7 @@ describe('GitHubClient', () => {
 
   describe('getFileContent', () => {
     it('should get file content successfully', async () => {
-      const mockContent = Buffer.from('# My Bookmarks\n\n- [Example](https://example.com)', 'utf8').toString('base64');
+      const mockContent = encodeBase64('# My Bookmarks\n\n- [Example](https://example.com)');
       const mockResponse = {
         type: 'file',
         content: mockContent,

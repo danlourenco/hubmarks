@@ -14,11 +14,13 @@ export interface StoredBookmark {
   id: string;
   title: string;
   url: string;
-  tags?: string[];
-  notes?: string;
+  folder: string;
+  tags: string[];
+  notes: string;
   dateAdded: number;
   dateModified: number;
-  folder?: string;
+  archived: boolean;
+  favorite: boolean;
 }
 
 class StorageManager {

@@ -7,7 +7,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
-    setupFiles: ['./src/test/setup.ts'],
+    setupFiles: ['./test-setup.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
@@ -15,7 +15,7 @@ export default defineConfig({
         'node_modules/',
         '.output/',
         '.wxt/',
-        'src/test/',
+        'test-setup.ts',
         '**/*.test.{ts,tsx}',
         '**/*.spec.{ts,tsx}',
       ]
@@ -23,7 +23,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '~': new URL('./src', import.meta.url).pathname,
+      '~': new URL('./', import.meta.url).pathname,
     }
   }
 });
