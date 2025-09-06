@@ -2,6 +2,8 @@ import { Octokit } from '@octokit/rest';
 import type { StoredBookmark, GitHubConfig } from './storage';
 import { encodeBase64, decodeBase64 } from './base64';
 
+// Removed generateSyncStableId() - no longer needed without Markdown parsing
+
 /**
  * Repository information returned by GitHub API
  */
@@ -461,50 +463,8 @@ export function generateMarkdownContent(
  * @param content - Markdown content to parse
  * @returns Array of parsed bookmarks
  */
-export function parseMarkdownContent(content: string): StoredBookmark[] {
-  const bookmarks: StoredBookmark[] = [];
-  const lines = content.split('\n');
-  
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-    
-    // Match markdown link format: - [Title](URL)
-    const linkMatch = line.match(/^-\s*\[([^\]]+)\]\(([^)]+)\)/);
-    if (linkMatch) {
-      const [, title, url] = linkMatch;
-      
-      // Look for metadata in subsequent lines
-      let notes = '';
-      let tags: string[] = [];
-      let folder = '';
-      
-      // Check next few lines for metadata
-      for (let j = i + 1; j < Math.min(i + 4, lines.length); j++) {
-        const nextLine = lines[j].trim();
-        if (nextLine.startsWith('*Tags:')) {
-          tags = nextLine.replace('*Tags:', '').replace(/\*$/, '').trim().split(',').map(t => t.trim()).filter(t => t);
-        } else if (nextLine.startsWith('*Notes:')) {
-          notes = nextLine.replace('*Notes:', '').replace(/\*$/, '').trim();
-        } else if (nextLine.startsWith('*Folder:')) {
-          folder = nextLine.replace('*Folder:', '').replace(/\*$/, '').trim();
-        }
-      }
-      
-      bookmarks.push({
-        id: `imported-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        title,
-        url,
-        tags: tags.length > 0 ? tags : undefined,
-        notes: notes || undefined,
-        folder: folder || undefined,
-        dateAdded: Date.now(),
-        dateModified: Date.now(),
-      });
-    }
-  }
-  
-  return bookmarks;
-}
+// Removed parseMarkdownContent() - JSON-first architecture only generates Markdown, never parses it
+// All bookmark data comes from bookmarks.json as the single source of truth
 
 /**
  * Create a safe filename from bookmark title

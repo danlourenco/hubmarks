@@ -4,7 +4,6 @@ import {
   GitHubClient, 
   validateGitHubToken,
   generateMarkdownContent,
-  parseMarkdownContent,
   sanitizeFilename,
   formatCommitMessage,
   type RepositoryInfo,
@@ -558,52 +557,7 @@ describe('generateMarkdownContent', () => {
   });
 });
 
-describe('parseMarkdownContent', () => {
-  it('should parse basic markdown links', () => {
-    const markdown = `# Bookmarks
-
-- [React Documentation](https://reactjs.org)
-- [GitHub](https://github.com)`;
-
-    const result = parseMarkdownContent(markdown);
-
-    expect(result).toHaveLength(2);
-    expect(result[0]).toEqual(expect.objectContaining({
-      title: 'React Documentation',
-      url: 'https://reactjs.org',
-    }));
-    expect(result[1]).toEqual(expect.objectContaining({
-      title: 'GitHub',
-      url: 'https://github.com',
-    }));
-  });
-
-  it('should parse markdown with metadata', () => {
-    const markdown = `# Bookmarks
-
-- [React Documentation](https://reactjs.org)
-  *Tags: react, javascript*
-  *Notes: Official React docs*
-  *Folder: Development*`;
-
-    const result = parseMarkdownContent(markdown);
-
-    expect(result).toHaveLength(1);
-    expect(result[0]).toEqual(expect.objectContaining({
-      title: 'React Documentation',
-      url: 'https://reactjs.org',
-      tags: ['react', 'javascript'],
-      notes: 'Official React docs',
-      folder: 'Development',
-    }));
-  });
-
-  it('should handle empty content', () => {
-    const result = parseMarkdownContent('# Bookmarks\n\nNo bookmarks yet.');
-
-    expect(result).toEqual([]);
-  });
-});
+// Removed parseMarkdownContent tests - JSON-first architecture only generates Markdown, never parses it
 
 describe('sanitizeFilename', () => {
   it('should create safe filename from title', () => {

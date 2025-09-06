@@ -212,46 +212,18 @@ export class BookmarkManager {
   /**
    * Generate a stable ID for a bookmark based on URL and title
    * 
-   * Uses a simplified version of the stable ID algorithm for synchronous operation.
-   * This removes the timestamp dependency while maintaining deterministic IDs.
-   * 
-   * Note: For full canonical URL processing, use the async generateStableId from utils/stable-id
+   * Uses the same algorithm as utils/github.ts for consistency across all ID generation
    * 
    * @param url - Bookmark URL
    * @param title - Bookmark title  
-   * @returns Stable ID string (deterministic, no timestamps)
+   * @returns Stable ID string (deterministic, consistent)
    */
   private generateStableId(url: string, title: string): string {
-    // Simple URL normalization (basic version of canonicalUrl)
-    let normalizedUrl = url.toLowerCase().trim();
+    const canonical = canonicalUrl(url);
+    const normalized = normalizeTitle(title);
+    const combined = `${canonical}|${normalized}`;
     
-    // Remove common tracking parameters
-    const trackingParams = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'gclid', 'fbclid', 'ref'];
-    try {
-      const urlObj = new URL(normalizedUrl);
-      trackingParams.forEach(param => urlObj.searchParams.delete(param));
-      
-      // Remove www prefix
-      urlObj.hostname = urlObj.hostname.replace(/^www\./, '');
-      
-      // Remove trailing slash (except root)
-      if (urlObj.pathname !== '/' && urlObj.pathname.endsWith('/')) {
-        urlObj.pathname = urlObj.pathname.slice(0, -1);
-      }
-      
-      normalizedUrl = urlObj.toString();
-    } catch (error) {
-      // If URL parsing fails, use the original with basic cleanup
-      normalizedUrl = url.trim().toLowerCase();
-    }
-    
-    // Normalize title
-    const normalizedTitle = title.trim().replace(/\s+/g, ' ');
-    
-    // Create composite key
-    const combined = `${normalizedUrl}::${normalizedTitle}`;
-    
-    // Generate stable hash (improved algorithm, no timestamp)
+    // Simple hash function for synchronous ID generation (same as github.ts)
     let hash = 0;
     for (let i = 0; i < combined.length; i++) {
       const char = combined.charCodeAt(i);
@@ -259,9 +231,8 @@ export class BookmarkManager {
       hash = hash & hash; // Convert to 32-bit integer
     }
     
-    // Create stable ID without timestamp
-    const stableHash = Math.abs(hash).toString(36).padStart(8, '0');
-    return `hm_${stableHash}`;
+    // Convert to positive hex and add prefix
+    return `hm_${Math.abs(hash).toString(16).padStart(8, '0')}`;
   }
 
   /**
@@ -668,6 +639,60 @@ export class BookmarkManager {
     });
     
     return Array.from(merged.values());
+  }
+
+  /**
+   * TEMPORARY: Clean up duplicate bookmarks by URL + Title
+   * 
+   * This utility removes browser bookmark duplicates that were created due to ID generation changes.
+   * Keeps the most recently added bookmark of each URL+title combination.
+   * 
+   * @returns Number of duplicates removed
+   */
+  async cleanupDuplicateBookmarks(): Promise<number> {
+    console.log('🧹 [BookmarkManager] Starting duplicate cleanup...');
+    
+    const allBookmarks = await this.getAllBookmarks();
+    const contentMap = new Map<string, NormalizedBookmark>();
+    const duplicatesToRemove: string[] = [];
+    
+    // Find duplicates by URL + title combination
+    allBookmarks.forEach(bookmark => {
+      const contentKey = `${bookmark.url}|${bookmark.title.trim()}`;
+      const existing = contentMap.get(contentKey);
+      
+      if (existing) {
+        // We found a duplicate - keep the more recent one
+        if (bookmark.dateAdded > existing.dateAdded) {
+          // Current bookmark is newer - remove the old one
+          duplicatesToRemove.push(existing.browserId!);
+          contentMap.set(contentKey, bookmark);
+        } else {
+          // Existing bookmark is newer - remove current one
+          duplicatesToRemove.push(bookmark.browserId!);
+        }
+      } else {
+        // First time seeing this content - keep it
+        contentMap.set(contentKey, bookmark);
+      }
+    });
+    
+    console.log(`🧹 [BookmarkManager] Found ${duplicatesToRemove.length} duplicates to remove`);
+    
+    // Remove duplicates from browser
+    let removedCount = 0;
+    for (const browserId of duplicatesToRemove) {
+      try {
+        await browser.bookmarks.remove(browserId);
+        removedCount++;
+        console.log(`🗑️ [BookmarkManager] Removed duplicate bookmark: ${browserId}`);
+      } catch (error) {
+        console.warn(`Failed to remove bookmark ${browserId}:`, error);
+      }
+    }
+    
+    console.log(`🧹 [BookmarkManager] Cleanup complete: ${removedCount} duplicates removed`);
+    return removedCount;
   }
 }
 

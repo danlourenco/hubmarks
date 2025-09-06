@@ -12,7 +12,7 @@ export type SyncDirection = 'bidirectional' | 'to-github' | 'from-github';
 /**
  * Sync conflict resolution strategies
  */
-export type ConflictStrategy = 'latest-wins' | 'manual' | 'github-wins' | 'local-wins';
+export type ConflictStrategy = 'latest-wins' | 'manual' | 'github-wins' | 'browser-wins';
 
 /**
  * Sync operation status
@@ -234,10 +234,23 @@ export class SyncManager {
       const browserBookmarks = await bookmarkManager.getAllBookmarks();
       const storedBookmarks = bookmarkManager.normalizedToStored(browserBookmarks);
       
-      // Update local cache
-      await storageManager.saveBookmarks(storedBookmarks);
+      // Deduplicate by HubMark ID (multiple browser bookmarks may have same HubMark ID)
+      const deduplicatedMap = new Map<string, StoredBookmark>();
+      storedBookmarks.forEach(bookmark => {
+        const existing = deduplicatedMap.get(bookmark.id);
+        if (!existing || bookmark.dateModified > existing.dateModified) {
+          // Keep the most recently modified version
+          deduplicatedMap.set(bookmark.id, bookmark);
+        }
+      });
       
-      return storedBookmarks;
+      const deduplicatedBookmarks = Array.from(deduplicatedMap.values());
+      console.log(`🔍 [SyncManager.getLocalBookmarks] Deduplicated ${storedBookmarks.length} → ${deduplicatedBookmarks.length} bookmarks`);
+      
+      // Update local cache
+      await storageManager.saveBookmarks(deduplicatedBookmarks);
+      
+      return deduplicatedBookmarks;
     } catch (error) {
       console.warn('Failed to get browser bookmarks, using cache:', error);
       return await storageManager.getBookmarks();
@@ -289,33 +302,46 @@ export class SyncManager {
     const fromGitHub: StoredBookmark[] = [];
     const toDelete: string[] = [];
 
-    // Find conflicts and changes
-    for (const [id, localBookmark] of localMap) {
+    // Get union of all IDs from both sides
+    const allIds = new Set([...localMap.keys(), ...remoteMap.keys()]);
+
+    for (const id of allIds) {
+      const localBookmark = localMap.get(id);
       const remoteBookmark = remoteMap.get(id);
       
-      if (!remoteBookmark) {
+      if (localBookmark && !remoteBookmark) {
         // Only in local - add to GitHub (unless from-github only)
         if (direction !== 'from-github') {
           toGitHub.push(localBookmark);
         }
-      } else if (this.hasConflict(localBookmark, remoteBookmark)) {
-        // Exists in both but different - conflict
-        conflicts.push({
-          bookmarkId: id,
-          localBookmark,
-          remoteBookmark,
-          conflictType: 'modified'
-        });
-      }
-    }
-
-    // Find remote-only bookmarks
-    for (const [id, remoteBookmark] of remoteMap) {
-      if (!localMap.has(id)) {
+      } else if (!localBookmark && remoteBookmark) {
         // Only in remote - add to local (unless to-github only)
         if (direction !== 'to-github') {
           fromGitHub.push(remoteBookmark);
         }
+      } else if (localBookmark && remoteBookmark) {
+        // Exists in both - determine winner or create conflict
+        if (this.bookmarksContentDiffers(localBookmark, remoteBookmark)) {
+          // Content differs - apply conflict resolution strategy
+          const localNewer = localBookmark.dateModified > remoteBookmark.dateModified;
+          const remoteNewer = remoteBookmark.dateModified > localBookmark.dateModified;
+          
+          // Use latest-wins strategy (configurable in future)
+          if (localNewer && direction !== 'from-github') {
+            // Local is newer - push to GitHub
+            toGitHub.push(localBookmark);
+          } else if (remoteNewer && direction !== 'to-github') {
+            // Remote is newer - pull from GitHub
+            fromGitHub.push(remoteBookmark);
+          } else if (!localNewer && !remoteNewer) {
+            // Same timestamp but different content - use remote as tie-breaker
+            if (direction !== 'to-github') {
+              fromGitHub.push(remoteBookmark);
+            }
+          }
+          // Note: For manual conflict resolution strategy, would add to conflicts array
+        }
+        // If content is identical, no action needed
       }
     }
 
@@ -388,7 +414,7 @@ export class SyncManager {
           }
           break;
           
-        case 'local-wins':
+        case 'browser-wins':
           resolved.push(conflict.localBookmark);
           break;
           
@@ -509,11 +535,30 @@ export class SyncManager {
 
       // Apply changes from GitHub to local
       if (changes.fromGitHub.length > 0 && bookmarkManager) {
+        // Get current local bookmarks to check for existing content
+        const currentLocal = await this.getLocalBookmarks();
+        const localIdMap = new Map(currentLocal.map(b => [b.id, b]));
+        const localContentMap = new Map(currentLocal.map(b => [`${b.url}|${b.title}`, b]));
+        
         for (const bookmark of changes.fromGitHub) {
           try {
             const normalized = bookmarkManager.storedToNormalized([bookmark])[0];
-            await bookmarkManager.createBookmark(normalized);
-            added++;
+            const existsByHubMarkId = localIdMap.has(bookmark.id);
+            const existsByContent = localContentMap.has(`${bookmark.url}|${bookmark.title}`);
+            
+            if (existsByHubMarkId) {
+              // Update existing bookmark (ID match)
+              await bookmarkManager.updateBookmark(bookmark.id, normalized);
+              modified++;
+            } else if (existsByContent) {
+              // Duplicate content - skip to prevent duplication
+              console.log(`🔍 [SyncManager] Skipping duplicate bookmark: ${bookmark.title} (${bookmark.url})`);
+              // Don't increment counters - this is a no-op
+            } else {
+              // Truly new bookmark - safe to create
+              await bookmarkManager.createBookmark(normalized);
+              added++;
+            }
           } catch (error) {
             console.warn(`Failed to create bookmark ${bookmark.title}:`, error);
           }

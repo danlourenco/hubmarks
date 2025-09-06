@@ -10,6 +10,13 @@ export interface AppSettings {
   autoSync?: boolean;
 }
 
+export interface ExtensionSettings extends AppSettings {
+  markdownFormat?: 'folder' | 'date' | 'title';
+  conflictResolution?: 'latest-wins' | 'browser-wins' | 'github-wins' | 'manual';
+  notificationLevel?: 'all' | 'errors' | 'none';
+  theme?: 'light' | 'dark' | 'auto';
+}
+
 export interface StoredBookmark {
   id: string;
   title: string;
@@ -24,12 +31,12 @@ export interface StoredBookmark {
 }
 
 class StorageManager {
-  async getSettings(): Promise<AppSettings> {
+  async getSettings(): Promise<ExtensionSettings> {
     const result = await browser.storage.sync.get('settings');
     return result.settings || {};
   }
 
-  async saveSettings(settings: AppSettings): Promise<void> {
+  async saveSettings(settings: ExtensionSettings): Promise<void> {
     await browser.storage.sync.set({ settings });
   }
 
@@ -45,6 +52,12 @@ class StorageManager {
   async saveGitHubConfig(config: GitHubConfig): Promise<void> {
     const settings = await this.getSettings();
     settings.github = config;
+    await this.saveSettings(settings);
+  }
+
+  async clearGitHubConfig(): Promise<void> {
+    const settings = await this.getSettings();
+    delete settings.github;
     await this.saveSettings(settings);
   }
 
