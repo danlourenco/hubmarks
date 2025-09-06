@@ -56,11 +56,13 @@ export interface StoredBookmark {
   id: string;              // Stable HubMark ID
   title: string;           // Bookmark title
   url: string;             // Target URL
-  tags?: string[];         // User-defined tags
-  notes?: string;          // Additional notes
+  folder: string;          // Browser folder path
+  tags: string[];          // User-defined tags array
+  notes: string;           // Additional notes
   dateAdded: number;       // Creation timestamp
   dateModified: number;    // Last modification timestamp
-  folder?: string;         // Folder path
+  archived: boolean;       // Whether bookmark is archived
+  favorite: boolean;       // Whether bookmark is favorite
 }
 ```
 
@@ -99,9 +101,13 @@ await storageManager.addBookmark({
   id: 'hm_abc123',
   title: 'React Documentation',
   url: 'https://reactjs.org',
+  folder: 'Development/Frontend',
   tags: ['react', 'javascript'],
+  notes: 'Great reference for React development',
   dateAdded: Date.now(),
-  dateModified: Date.now()
+  dateModified: Date.now(),
+  archived: false,
+  favorite: true
 });
 
 // Update existing bookmark

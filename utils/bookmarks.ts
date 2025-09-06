@@ -547,11 +547,13 @@ export class BookmarkManager {
       id: bookmark.id,
       title: bookmark.title,
       url: bookmark.url,
-      tags: bookmark.tags.length > 0 ? bookmark.tags : undefined,
-      notes: bookmark.notes || undefined,
-      folder: bookmark.folderPath || undefined,
+      folder: bookmark.folderPath || '',
+      tags: bookmark.tags || [],
+      notes: bookmark.notes || '',
       dateAdded: bookmark.dateAdded,
-      dateModified: bookmark.dateModified
+      dateModified: bookmark.dateModified,
+      archived: false,
+      favorite: false
     }));
   }
 

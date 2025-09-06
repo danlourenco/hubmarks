@@ -10,12 +10,12 @@ HubMark is a cross-browser bookmarking extension that syncs bookmarks to a GitHu
 - Chrome and Safari extension compatibility
 - User has a GitHub account
 - Extension setup assists in creating/selecting a GitHub repository
-- Bookmarks saved in structured Markdown files for easy sharing
+- Bookmarks saved in structured JSON format with auto-generated Markdown display
 - Real-time sync on bookmark save, delete, or edit operations
 
 ### Core Features
 - Sync bookmarks to a user-owned GitHub repository
-- Store bookmarks in Markdown format for web sharing
+- Store bookmarks in JSON format with auto-generated Markdown for web sharing
 - GitHub repository setup assistance
 - Support for existing repository selection
 
