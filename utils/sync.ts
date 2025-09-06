@@ -255,12 +255,13 @@ export class SyncManager {
     }
 
     try {
-      // Try to get main bookmarks file
-      const file = await this.githubClient.getFileContent('bookmarks.md');
-      return parseMarkdownContent(file.content);
+      // Try to get main bookmarks JSON file (JSON-first architecture)
+      const file = await this.githubClient.getFileContent('bookmarks.json');
+      return JSON.parse(file.content);
     } catch (error: any) {
-      if (error.message.includes('not found')) {
-        // No remote bookmarks yet
+      if (error.message.includes('not found') || error.message.includes('Not Found')) {
+        // No remote bookmarks yet - this is the first sync
+        console.log('🔍 [SyncManager.getRemoteBookmarks] No remote bookmarks file found, returning empty array for first sync');
         return [];
       }
       throw error;
@@ -426,12 +427,12 @@ export class SyncManager {
         let existingSha: string | undefined;
         
         try {
-          // Always read current remote file to get full bookmark set
-          const existing = await this.githubClient.getFileContent('bookmarks.md');
-          existingBookmarks = parseMarkdownContent(existing.content);
+          // Always read current remote JSON file to get full bookmark set
+          const existing = await this.githubClient.getFileContent('bookmarks.json');
+          existingBookmarks = JSON.parse(existing.content);
           existingSha = existing.sha;
         } catch (error: any) {
-          if (!error.message.includes('not found')) {
+          if (!error.message.includes('not found') && !error.message.includes('Not Found')) {
             throw error;
           }
           // File doesn't exist yet - will create new
@@ -458,25 +459,51 @@ export class SyncManager {
           }
         }
         
-        // Generate markdown from complete merged set
+        // Generate JSON from complete merged set
         const allBookmarks = Array.from(bookmarkMap.values());
-        const markdown = generateMarkdownContent(allBookmarks, 'folder');
+        const jsonContent = JSON.stringify(allBookmarks, null, 2);
         
         if (existingSha) {
-          // Update existing file with complete set
+          // Update existing JSON file with complete set
           await this.githubClient.updateFile(
-            'bookmarks.md',
-            markdown,
+            'bookmarks.json',
+            jsonContent,
             `chore: sync bookmarks (+${added} ~${modified} -${deleted})`,
             existingSha
           );
         } else {
-          // Create new file
+          // Create new JSON file
           await this.githubClient.createFile(
-            'bookmarks.md',
-            markdown,
+            'bookmarks.json',
+            jsonContent,
             'feat: initial bookmark sync to GitHub'
           );
+        }
+        
+        // Generate Markdown from JSON for display purposes
+        const markdown = generateMarkdownContent(allBookmarks, 'folder');
+        
+        try {
+          // Try to get existing README.md to update it
+          const existingReadme = await this.githubClient.getFileContent('README.md');
+          await this.githubClient.updateFile(
+            'README.md',
+            markdown,
+            'docs: update bookmark display from JSON',
+            existingReadme.sha
+          );
+        } catch (error: any) {
+          if (error.message.includes('not found') || error.message.includes('Not Found')) {
+            // Create new README.md for display
+            await this.githubClient.createFile(
+              'README.md',
+              markdown,
+              'docs: generate bookmark display from JSON'
+            );
+          } else {
+            // Non-404 error - log but don't fail the sync
+            console.warn('Failed to update README.md:', error.message);
+          }
         }
       }
 
