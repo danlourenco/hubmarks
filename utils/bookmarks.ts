@@ -162,11 +162,18 @@ export class BookmarkManager {
       return;
     }
 
-    const currentPath = parentPath ? `${parentPath}/${node.title}` : node.title;
+    // Exclude special root folders from path construction
+    const specialRootFolders = [
+      'Bookmarks Bar', 'Other Bookmarks', 'Mobile Bookmarks',  // Chrome
+      'Bookmarks Menu', 'Favorites', 'Reading List', 'Bookmarks'  // Safari
+    ];
+    
+    const isSpecialFolder = specialRootFolders.includes(node.title);
+    const currentPath = isSpecialFolder ? '' : (parentPath ? `${parentPath}/${node.title}` : node.title);
 
     if (node.url) {
       // It's a bookmark
-      const normalized = this.browserToNormalized(node, parentPath);
+      const normalized = this.browserToNormalized(node, currentPath);
       result.push(normalized);
       
       // Update ID mapping
