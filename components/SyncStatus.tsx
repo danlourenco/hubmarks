@@ -1,5 +1,6 @@
 import React from 'react';
 import { useSync } from '~/hooks/useSync';
+import { useGitHubConfig } from '~/hooks/useGitHubConfig';
 
 interface SyncStatusProps {
   showDetails?: boolean;
@@ -14,27 +15,36 @@ interface SyncStatusProps {
 export function SyncStatus({ showDetails = true, className = '' }: SyncStatusProps) {
   const { 
     status, 
-    isLoading, 
-    error, 
-    isConfigured, 
+    isLoading: isSyncLoading, 
+    error: syncError, 
     hasConflicts, 
     isSyncing, 
     totalBookmarks, 
     lastSync 
   } = useSync();
 
+  // Use direct storage access for config state (more reliable than background messaging)
+  const { 
+    isConfigured, 
+    isLoading: isConfigLoading, 
+    error: configError 
+  } = useGitHubConfig();
+
+  const isLoading = isSyncLoading || isConfigLoading;
+  const error = syncError || configError;
+
   const getStatusColor = () => {
-    if (error || !isConfigured) return 'text-red-500';
-    if (hasConflicts) return 'text-orange-500';
-    if (isSyncing) return 'text-blue-500';
-    return 'text-green-500';
+    if (error || !isConfigured) return 'text-error';
+    if (hasConflicts) return 'text-warning';
+    if (isSyncing) return 'text-info';
+    return 'text-success';
   };
 
   const getStatusIcon = () => {
-    if (error || !isConfigured) return '⚠';
-    if (hasConflicts) return '⚡';
-    if (isSyncing) return '⟳';
-    return '✓';
+    if (error || !isConfigured) return '•';
+    if (hasConflicts) return '•';
+    if (isSyncing) return '•';
+    return '•';
   };
 
   const getStatusText = () => {
@@ -42,7 +52,8 @@ export function SyncStatus({ showDetails = true, className = '' }: SyncStatusPro
     if (!isConfigured) return 'Not configured';
     if (hasConflicts) return 'Conflicts';
     if (isSyncing) return 'Syncing...';
-    if (status?.status === 'idle') return 'Synced';
+    if (status?.status === 'idle' && lastSync) return 'Synced';
+    if (status?.status === 'idle' && !lastSync) return 'Ready';
     return 'Unknown';
   };
 
@@ -64,41 +75,29 @@ export function SyncStatus({ showDetails = true, className = '' }: SyncStatusPro
 
   return (
     <div className={`sync-status ${className}`}>
-      <div className="flex items-center space-x-2">
-        <span className={`text-lg ${getStatusColor()} ${isSyncing ? 'animate-spin' : ''}`}>
+      <div className="flex items-center gap-2">
+        <span className={`text-xs ${getStatusColor()}`}>
           {getStatusIcon()}
         </span>
-        <span className={`font-medium ${getStatusColor()}`}>
+        <span className={`text-sm ${getStatusColor()}`}>
           {getStatusText()}
         </span>
+        {isConfigured && showDetails && (
+          <span className="text-sm text-gray-500">
+            • Last sync: {formatLastSync()}
+          </span>
+        )}
       </div>
       
-      {showDetails && (
-        <div className="mt-2 text-sm text-gray-600 space-y-1">
-          {isConfigured && (
-            <>
-              <div className="flex justify-between">
-                <span>Bookmarks:</span>
-                <span className="font-medium">{totalBookmarks.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Last sync:</span>
-                <span className="font-medium">{formatLastSync()}</span>
-              </div>
-            </>
-          )}
-          
-          {error && (
-            <div className="text-red-600 text-xs mt-2 p-2 bg-red-50 rounded">
-              {error}
-            </div>
-          )}
+      {error && showDetails && (
+        <div className="mt-2 p-2 bg-red-50 rounded-md">
+          <span className="text-xs text-red-700">{error}</span>
         </div>
       )}
       
       {hasConflicts && showDetails && (
-        <div className="mt-2 text-sm text-orange-600 bg-orange-50 p-2 rounded">
-          Conflicts detected. Manual resolution required.
+        <div className="mt-2 p-2 bg-yellow-50 rounded-md">
+          <span className="text-xs text-yellow-700">Conflicts detected. Manual resolution required.</span>
         </div>
       )}
     </div>

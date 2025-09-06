@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useSync } from '~/hooks/useSync';
+import { useGitHubConfig } from '~/hooks/useGitHubConfig';
 import type { SyncConfig } from '~/utils/sync';
 
 interface SyncControlsProps {
@@ -22,9 +23,11 @@ export function SyncControls({
     isLoading, 
     error, 
     hasConflicts, 
-    isSyncing, 
-    isConfigured 
+    isSyncing 
   } = useSync();
+
+  // Use direct storage access for config state (more reliable than background messaging)
+  const { isConfigured } = useGitHubConfig();
 
   const [syncDirection, setSyncDirection] = useState<SyncConfig['direction']>('bidirectional');
   const [showConflictResolution, setShowConflictResolution] = useState(false);
@@ -33,7 +36,9 @@ export function SyncControls({
    * Handle manual sync trigger
    */
   const handleSync = async () => {
+    console.log('🔘 [SyncControls] Sync button clicked, direction:', syncDirection);
     const result = await triggerSync(syncDirection);
+    console.log('🔘 [SyncControls] Sync result:', result);
     if (result?.conflicts?.length > 0) {
       setShowConflictResolution(true);
     }
@@ -52,8 +57,8 @@ export function SyncControls({
   if (!isConfigured) {
     return (
       <div className={`sync-controls ${className}`}>
-        <div className="text-center py-4 text-gray-500">
-          GitHub not configured
+        <div className="alert alert-warning">
+          <span>GitHub not configured</span>
         </div>
       </div>
     );
@@ -70,7 +75,7 @@ export function SyncControls({
           <select
             value={syncDirection}
             onChange={(e) => setSyncDirection(e.target.value as SyncConfig['direction'])}
-            className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="select select-bordered select-sm w-full"
             disabled={isSyncing}
           >
             <option value="bidirectional">⟷ Two-way sync</option>
@@ -85,7 +90,7 @@ export function SyncControls({
         <button
           onClick={handleSync}
           disabled={isSyncing || isLoading}
-          className="flex-1 bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center"
+          className="btn btn-primary flex-1"
         >
           {isSyncing ? (
             <>
@@ -103,7 +108,7 @@ export function SyncControls({
         {hasConflicts && (
           <button
             onClick={() => setShowConflictResolution(!showConflictResolution)}
-            className="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700"
+            className="btn btn-warning"
             title="Resolve conflicts"
           >
             ⚡
@@ -113,16 +118,17 @@ export function SyncControls({
 
       {/* Error Display */}
       {error && (
-        <div className="mt-3 text-red-600 text-sm bg-red-50 p-3 rounded">
-          {error}
+        <div className="alert alert-error mt-3">
+          <span>{error}</span>
         </div>
       )}
 
       {/* Conflict Resolution Panel */}
       {showConflictResolution && hasConflicts && (
-        <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded">
-          <h4 className="font-medium text-orange-800 mb-3">Resolve Conflicts</h4>
-          <p className="text-sm text-orange-700 mb-4">
+        <div className="card bg-warning/10 border-warning mt-4">
+          <div className="card-body">
+          <h4 className="card-title text-warning">Resolve Conflicts</h4>
+          <p className="text-sm mb-4">
             Conflicts were detected during sync. Choose how to resolve them:
           </p>
           
@@ -130,43 +136,52 @@ export function SyncControls({
             <button
               onClick={() => handleResolveConflicts('latest-wins')}
               disabled={isLoading}
-              className="w-full text-left p-3 bg-white border border-orange-200 rounded hover:bg-orange-50 disabled:opacity-50"
+              className="btn btn-outline btn-warning w-full text-left justify-start p-3 h-auto"
             >
-              <div className="font-medium">Keep Latest Changes</div>
-              <div className="text-sm text-gray-600">
-                Prefer the most recently modified bookmarks
+              <div>
+                <div className="font-medium">Keep Latest Changes</div>
+                <div className="text-sm opacity-70">
+                  Prefer the most recently modified bookmarks
+                </div>
               </div>
             </button>
             
             <button
               onClick={() => handleResolveConflicts('browser-wins')}
               disabled={isLoading}
-              className="w-full text-left p-3 bg-white border border-orange-200 rounded hover:bg-orange-50 disabled:opacity-50"
+              className="btn btn-outline btn-warning w-full text-left justify-start p-3 h-auto"
             >
-              <div className="font-medium">Keep Browser Version</div>
-              <div className="text-sm text-gray-600">
-                Prefer bookmarks from this browser
+              <div>
+                <div className="font-medium">Keep Browser Version</div>
+                <div className="text-sm opacity-70">
+                  Prefer bookmarks from this browser
+                </div>
               </div>
             </button>
             
             <button
               onClick={() => handleResolveConflicts('github-wins')}
               disabled={isLoading}
-              className="w-full text-left p-3 bg-white border border-orange-200 rounded hover:bg-orange-50 disabled:opacity-50"
+              className="btn btn-outline btn-warning w-full text-left justify-start p-3 h-auto"
             >
-              <div className="font-medium">Keep GitHub Version</div>
-              <div className="text-sm text-gray-600">
-                Prefer bookmarks from GitHub repository
+              <div>
+                <div className="font-medium">Keep GitHub Version</div>
+                <div className="text-sm opacity-70">
+                  Prefer bookmarks from GitHub repository
+                </div>
               </div>
             </button>
           </div>
           
-          <button
-            onClick={() => setShowConflictResolution(false)}
-            className="mt-3 text-sm text-orange-600 hover:text-orange-800"
-          >
-            Cancel
-          </button>
+            <div className="card-actions justify-end">
+              <button
+                onClick={() => setShowConflictResolution(false)}
+                className="btn btn-sm btn-ghost"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

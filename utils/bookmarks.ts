@@ -128,11 +128,16 @@ export class BookmarkManager {
    */
   async getAllBookmarks(): Promise<NormalizedBookmark[]> {
     try {
+      console.log('📚 [BookmarkManager] Getting bookmark tree...');
       const tree = await browser.bookmarks.getTree();
+      console.log('📚 [BookmarkManager] Raw bookmark tree:', JSON.stringify(tree, null, 2));
+      
       const normalized: NormalizedBookmark[] = [];
       this.traverseBookmarkTree(tree[0], '', normalized);
+      console.log('📚 [BookmarkManager] Normalized bookmarks:', normalized.length, normalized);
       return normalized;
     } catch (error: any) {
+      console.error('📚 [BookmarkManager] Failed to get bookmarks:', error);
       throw new Error(`Failed to get bookmarks: ${error.message}`);
     }
   }

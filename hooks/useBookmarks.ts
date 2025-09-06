@@ -23,10 +23,13 @@ export function useBookmarks() {
       setIsLoading(true);
       setError(null);
       
+      console.log('🔍 [POPUP] Loading bookmarks via bookmarkManager...');
       const allBookmarks = await bookmarkManager.getAllBookmarks();
+      console.log('🔍 [POPUP] Loaded bookmarks:', allBookmarks.length, allBookmarks);
       setBookmarks(allBookmarks);
       setFilteredBookmarks(allBookmarks);
     } catch (err: any) {
+      console.error('🔍 [POPUP] Failed to load bookmarks:', err);
       setError(err.message || 'Failed to load bookmarks');
     } finally {
       setIsLoading(false);

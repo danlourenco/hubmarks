@@ -47,23 +47,32 @@ export function useSync() {
    * Trigger manual sync operation
    */
   const triggerSync = useCallback(async (direction?: SyncConfig['direction']): Promise<SyncResult | null> => {
+    console.log('🚀 [useSync] triggerSync called with direction:', direction);
     setIsLoading(true);
     setError(null);
     
     try {
+      console.log('📨 [useSync] Sending message to background service...');
       const response = await sendMessage({ 
         type: 'TRIGGER_SYNC', 
         direction 
       });
+      console.log('📨 [useSync] Background response:', response);
+      console.log('📨 [useSync] Response success:', response?.success);
+      console.log('📨 [useSync] Response error:', response?.error);
+      console.log('📨 [useSync] Response result:', response?.result);
       
       if (response?.success) {
+        console.log('✅ [useSync] Sync successful, refreshing status...');
         await refreshStatus(); // Refresh status after sync
         return response.result;
       } else {
+        console.error('❌ [useSync] Sync failed:', response?.error);
         setError(response?.error || 'Sync failed');
         return null;
       }
     } catch (err: any) {
+      console.error('💥 [useSync] Exception during sync:', err);
       setError(err.message || 'Sync failed');
       return null;
     } finally {

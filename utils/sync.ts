@@ -162,6 +162,9 @@ export class SyncManager {
     };
 
     try {
+      console.log('🔍 [SyncManager.executeSync] Starting sync with config:', config);
+      console.log('🔍 [SyncManager.executeSync] GitHub client exists:', !!this.githubClient);
+      
       // Ensure GitHub client is available
       if (!this.githubClient) {
         throw new Error('GitHub not configured');
@@ -201,9 +204,14 @@ export class SyncManager {
       result.success = true;
       result.status = 'idle';
     } catch (error: any) {
-      result.errors.push(error.message);
+      console.error('🚨 [SyncManager.executeSync] Sync failed with error:', error);
+      console.error('🚨 [SyncManager.executeSync] Error type:', typeof error);
+      console.error('🚨 [SyncManager.executeSync] Error message:', error?.message);
+      console.error('🚨 [SyncManager.executeSync] Error stack:', error?.stack);
+      
+      const errorMessage = error?.message || error?.toString() || 'Unknown sync error';
+      result.errors.push(errorMessage);
       result.status = 'error';
-      console.error('Sync failed:', error);
     } finally {
       result.duration = Date.now() - startTime;
     }
@@ -679,14 +687,25 @@ export class SyncManager {
     totalBookmarks: number;
   }> {
     const lastSync = await storageManager.getLastSyncTime();
-    const bookmarks = await storageManager.getBookmarks();
+    
+    // Get live bookmark count from browser instead of cached storage
+    let totalBookmarks = 0;
+    try {
+      const browserBookmarks = await this.getLocalBookmarks();
+      totalBookmarks = browserBookmarks.length;
+      console.log('🔍 [SyncManager.getStatus] Live browser bookmarks count:', totalBookmarks);
+    } catch (error) {
+      console.error('🔍 [SyncManager.getStatus] Failed to get live bookmarks, falling back to storage:', error);
+      const cachedBookmarks = await storageManager.getBookmarks();
+      totalBookmarks = cachedBookmarks.length;
+    }
     
     return {
       status: this.currentSyncPromise ? 'syncing' : 'idle',
       lastSync,
       queueLength: this.syncQueue.length,
       isGitHubConfigured: !!this.githubClient,
-      totalBookmarks: bookmarks.length,
+      totalBookmarks,
     };
   }
 

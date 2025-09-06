@@ -2,7 +2,6 @@ import React from 'react';
 import { SyncStatus } from '~/components/SyncStatus';
 import { BookmarkList } from '~/components/BookmarkList';
 import { SyncControls } from '~/components/SyncControls';
-import './App.css';
 
 function App() {
   const openOptions = () => {
@@ -10,15 +9,18 @@ function App() {
   };
 
   return (
-    <div className="hubmark-popup">
-      <header className="popup-header">
-        <h1>HubMark</h1>
-        <button onClick={openOptions} className="settings-btn">
+    <div className="w-80 min-h-96 bg-base-100">
+      <header className="flex items-center justify-between p-4 border-b border-base-200 bg-base-200">
+        <h1 className="text-xl font-bold text-primary">HubMark</h1>
+        <button 
+          onClick={openOptions} 
+          className="btn btn-primary btn-sm"
+        >
           Settings
         </button>
       </header>
       
-      <main className="popup-main">
+      <main className="p-4 space-y-4">
         <SyncStatus />
         <SyncControls />
         <BookmarkList />

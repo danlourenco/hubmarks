@@ -34,8 +34,12 @@ class StorageManager {
   }
 
   async getGitHubConfig(): Promise<GitHubConfig | null> {
+    console.log('🗄️ [Storage] Getting GitHub config...');
     const settings = await this.getSettings();
-    return settings.github || null;
+    console.log('🗄️ [Storage] Retrieved settings:', settings);
+    const config = settings.github || null;
+    console.log('🗄️ [Storage] GitHub config:', config);
+    return config;
   }
 
   async saveGitHubConfig(config: GitHubConfig): Promise<void> {

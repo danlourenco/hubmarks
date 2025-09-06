@@ -118,8 +118,8 @@ export function SettingsForm({ onSave, className = '' }: SettingsFormProps) {
     return (
       <div className={`settings-form ${className}`}>
         <div className="flex items-center justify-center py-8">
-          <div className="animate-spin text-2xl mr-2">⟳</div>
-          <span className="text-gray-600">Loading settings...</span>
+          <span className="loading loading-spinner loading-lg text-primary"></span>
+          <span className="ml-3 text-base-content">Loading settings...</span>
         </div>
       </div>
     );
@@ -127,181 +127,117 @@ export function SettingsForm({ onSave, className = '' }: SettingsFormProps) {
 
   return (
     <div className={`settings-form ${className}`}>
-      <div className="space-y-6">
-        {/* Auto Sync Settings */}
-        <div className="setting-group">
-          <h3 className="text-lg font-semibold mb-4">Sync Settings</h3>
-          
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <label className="font-medium text-gray-700">Auto Sync</label>
-                <div className="text-sm text-gray-500">
-                  Automatically sync bookmarks in the background
-                </div>
-              </div>
-              <input
-                type="checkbox"
-                checked={formData.autoSync}
-                onChange={(e) => handleChange('autoSync', e.target.checked)}
-                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-              />
+      <div className="space-y-8">
+        {/* Auto Sync */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between py-2">
+            <div>
+              <label className="text-sm font-normal text-base-content">Automatic Sync</label>
+              {formData.autoSync && (
+                <p className="text-xs text-base-content/60 mt-1">{formatSyncInterval(formData.syncInterval)}</p>
+              )}
             </div>
-
-            {formData.autoSync && (
-              <div>
-                <label className="block font-medium text-gray-700 mb-2">
-                  Sync Interval
-                </label>
-                <select
-                  value={formData.syncInterval}
-                  onChange={(e) => handleChange('syncInterval', parseInt(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value={60000}>1 minute</option>
-                  <option value={300000}>5 minutes</option>
-                  <option value={600000}>10 minutes</option>
-                  <option value={1800000}>30 minutes</option>
-                  <option value={3600000}>1 hour</option>
-                  <option value={7200000}>2 hours</option>
-                  <option value={21600000}>6 hours</option>
-                  <option value={86400000}>24 hours</option>
-                </select>
-                <div className="text-sm text-gray-500 mt-1">
-                  Currently: {formatSyncInterval(formData.syncInterval)}
-                </div>
-              </div>
-            )}
+            <input
+              type="checkbox"
+              checked={formData.autoSync}
+              onChange={(e) => handleChange('autoSync', e.target.checked)}
+              className="toggle toggle-sm"
+            />
           </div>
+          
+          {formData.autoSync && (
+            <select
+              value={formData.syncInterval}
+              onChange={(e) => handleChange('syncInterval', parseInt(e.target.value))}
+              className="select select-sm select-bordered w-full"
+            >
+              <option value={60000}>Every minute</option>
+              <option value={300000}>Every 5 minutes</option>
+              <option value={600000}>Every 10 minutes</option>
+              <option value={1800000}>Every 30 minutes</option>
+              <option value={3600000}>Every hour</option>
+              <option value={7200000}>Every 2 hours</option>
+              <option value={21600000}>Every 6 hours</option>
+              <option value={86400000}>Once a day</option>
+            </select>
+          )}
         </div>
 
-        {/* Markdown Format */}
-        <div className="setting-group">
-          <h3 className="text-lg font-semibold mb-4">Export Format</h3>
-          
-          <div>
-            <label className="block font-medium text-gray-700 mb-2">
-              Markdown Organization
-            </label>
-            <select
-              value={formData.markdownFormat}
-              onChange={(e) => handleChange('markdownFormat', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="folder">Group by Folder</option>
-              <option value="date">Group by Date Added</option>
-              <option value="tags">Group by Tags</option>
-              <option value="flat">Flat List</option>
-            </select>
-            <div className="text-sm text-gray-500 mt-1 space-y-1">
-              <div><strong>Folder:</strong> Organize by browser folder structure</div>
-              <div><strong>Date:</strong> Group by date bookmarks were added</div>
-              <div><strong>Tags:</strong> Group by bookmark tags</div>
-              <div><strong>Flat:</strong> Simple list without grouping</div>
-            </div>
-          </div>
+        {/* Data Organization */}
+        <div className="space-y-3">
+          <label className="text-sm font-normal text-base-content">Data Organization</label>
+          <select
+            value={formData.markdownFormat}
+            onChange={(e) => handleChange('markdownFormat', e.target.value)}
+            className="select select-sm select-bordered w-full"
+          >
+            <option value="folder">By Folder</option>
+            <option value="date">By Date Added</option>
+            <option value="tags">By Tags</option>
+            <option value="flat">Flat List</option>
+          </select>
         </div>
 
         {/* Conflict Resolution */}
-        <div className="setting-group">
-          <h3 className="text-lg font-semibold mb-4">Conflict Resolution</h3>
-          
-          <div>
-            <label className="block font-medium text-gray-700 mb-2">
-              Default Strategy
-            </label>
-            <select
-              value={formData.conflictResolution}
-              onChange={(e) => handleChange('conflictResolution', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="latest-wins">Keep Latest Changes</option>
-              <option value="browser-wins">Prefer Browser Version</option>
-              <option value="github-wins">Prefer GitHub Version</option>
-              <option value="manual">Always Ask</option>
-            </select>
-            <div className="text-sm text-gray-500 mt-1 space-y-1">
-              <div><strong>Latest:</strong> Choose the most recently modified version</div>
-              <div><strong>Browser:</strong> Always prefer the browser's version</div>
-              <div><strong>GitHub:</strong> Always prefer the repository version</div>
-              <div><strong>Manual:</strong> Always prompt for user decision</div>
-            </div>
-          </div>
+        <div className="space-y-3">
+          <label className="text-sm font-normal text-base-content">Conflict Resolution</label>
+          <select
+            value={formData.conflictResolution}
+            onChange={(e) => handleChange('conflictResolution', e.target.value)}
+            className="select select-sm select-bordered w-full"
+          >
+            <option value="latest-wins">Latest Wins</option>
+            <option value="browser-wins">Browser Wins</option>
+            <option value="github-wins">GitHub Wins</option>
+            <option value="manual">Ask Me</option>
+          </select>
         </div>
 
         {/* Notifications */}
-        <div className="setting-group">
-          <h3 className="text-lg font-semibold mb-4">Notifications</h3>
-          
-          <div>
-            <label className="block font-medium text-gray-700 mb-2">
-              Notification Level
-            </label>
-            <select
-              value={formData.notificationLevel}
-              onChange={(e) => handleChange('notificationLevel', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="all">All Events</option>
-              <option value="errors">Errors Only</option>
-              <option value="none">None</option>
-            </select>
-            <div className="text-sm text-gray-500 mt-1">
-              Controls when the extension shows notifications
-            </div>
-          </div>
+        <div className="space-y-3">
+          <label className="text-sm font-normal text-base-content">Notifications</label>
+          <select
+            value={formData.notificationLevel}
+            onChange={(e) => handleChange('notificationLevel', e.target.value)}
+            className="select select-sm select-bordered w-full"
+          >
+            <option value="all">All Events</option>
+            <option value="errors">Errors Only</option>
+            <option value="none">Silent</option>
+          </select>
         </div>
 
-        {/* Theme */}
-        <div className="setting-group">
-          <h3 className="text-lg font-semibold mb-4">Appearance</h3>
-          
-          <div>
-            <label className="block font-medium text-gray-700 mb-2">
-              Theme
-            </label>
-            <select
-              value={formData.theme}
-              onChange={(e) => handleChange('theme', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="auto">Auto (System)</option>
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
-            </select>
-          </div>
-        </div>
 
         {/* Error Display */}
         {error && (
-          <div className="text-red-600 text-sm bg-red-50 p-3 rounded">
-            {error}
+          <div className="alert alert-error">
+            <span>{error}</span>
           </div>
         )}
 
         {/* Save Message */}
         {saveMessage && (
-          <div className="text-green-600 text-sm bg-green-50 p-3 rounded">
-            {saveMessage}
+          <div className="alert alert-success">
+            <span>{saveMessage}</span>
           </div>
         )}
 
         {/* Action Buttons */}
-        <div className="flex space-x-3">
+        <div className="flex gap-2 pt-4">
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className="flex-1 bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+            className="btn btn-sm btn-neutral"
           >
-            {isSaving ? 'Saving...' : 'Save Settings'}
+            {isSaving ? 'Saving...' : 'Save'}
           </button>
           
           <button
             onClick={resetToDefaults}
             disabled={isSaving}
-            className="px-4 py-2 text-gray-600 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
+            className="btn btn-sm btn-ghost"
           >
-            Reset to Defaults
+            Reset
           </button>
         </div>
       </div>
