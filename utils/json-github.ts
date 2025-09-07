@@ -2,10 +2,6 @@ import { GitHubClient } from './github';
 import { HubMarkData, HubMarkBookmark, schemaValidator, createEmptyData } from './json-schema';
 import type { GitHubConfig } from './storage';
 import type { ConflictStrategy } from './sync';
-import { encodeBase64 as browserSafeEncode, decodeBase64 as browserSafeDecode } from './base64';
-
-// Re-export base64 functions for consistency
-export { browserSafeEncode, browserSafeDecode };
 
 /**
  * Conflict information
@@ -59,8 +55,7 @@ export class JSONGitHubClient {
   async readBookmarkData(): Promise<{ data: HubMarkData; sha?: string }> {
     try {
       const file = await this.client.getFileContent(this.dataPath);
-      const jsonContent = browserSafeDecode(file.content);
-      const data = JSON.parse(jsonContent) as unknown;
+      const data = JSON.parse(file.content) as unknown;
       
       // Validate against schema
       schemaValidator.validateOrThrow(data);
@@ -103,7 +98,6 @@ export class JSONGitHubClient {
     };
 
     const jsonContent = JSON.stringify(data, null, 2);
-    const encodedContent = browserSafeEncode(jsonContent);
 
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
@@ -111,7 +105,7 @@ export class JSONGitHubClient {
           // Update existing file
           const result = await this.client.updateFile(
             this.dataPath,
-            encodedContent,
+            jsonContent,
             message,
             sha
           );
@@ -120,7 +114,7 @@ export class JSONGitHubClient {
           // Create new file
           const result = await this.client.createFile(
             this.dataPath,
-            encodedContent,
+            jsonContent,
             message
           );
           return result.content.sha;
@@ -371,12 +365,11 @@ export class JSONGitHubClient {
    */
   async updateReadmeIfChanged(data: HubMarkData): Promise<boolean> {
     const newContent = this.generateReadme(data);
-    const encodedContent = browserSafeEncode(newContent);
 
     try {
       // Check if README exists and compare content
       const existing = await this.client.getFileContent(this.readmePath);
-      const existingContent = browserSafeDecode(existing.content);
+      const existingContent = existing.content;
       
       if (existingContent === newContent) {
         // No changes needed
@@ -386,7 +379,7 @@ export class JSONGitHubClient {
       // Update existing README
       await this.client.updateFile(
         this.readmePath,
-        encodedContent,
+        newContent,
         'docs: update README from bookmark data',
         existing.sha
       );
@@ -397,7 +390,7 @@ export class JSONGitHubClient {
         // Create new README
         await this.client.createFile(
           this.readmePath,
-          encodedContent,
+          newContent,
           'docs: create README from bookmark data'
         );
         return true;

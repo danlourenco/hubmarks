@@ -67,6 +67,59 @@
 
 ---
 
+### 17:30 - Fixed Double Encoding Issue (Critical Issue #4)
+**Task**: Eliminate double base64 encoding between JSONGitHubClient and GitHubClient
+
+**Issue Identified**:
+- **JSONGitHubClient**: Was encoding with `browserSafeEncode()` before sending to GitHubClient
+- **GitHubClient**: Was also encoding with `encodeBase64()` before sending to GitHub API
+- Result: Double encoding causing data corruption
+
+**Changes Made**:
+1. **Fixed writeBookmarkData()**: Pass raw JSON content to GitHubClient instead of pre-encoded
+2. **Fixed updateReadmeIfChanged()**: Pass raw markdown content to GitHubClient  
+3. **Fixed readBookmarkData()**: Read raw content from GitHubClient instead of trying to decode
+4. **Removed unused imports**: Cleaned up browserSafeEncode/browserSafeDecode imports
+
+**Technical Details**:
+- Encoding responsibility now centralized in GitHubClient only
+- JSONGitHubClient handles JSON/Markdown generation, GitHubClient handles API encoding
+- Eliminated potential data corruption from layered encoding/decoding
+
+**Tests**: ✅ All 9 sync tests still passing
+
+**Result**: Double encoding eliminated. Single encoding layer maintained at GitHubClient level.
+
+---
+
+### 17:45 - Verified Schema Validation & 3-Way Merge (Issues #5 & #6)
+**Task**: Confirm schema validation and 3-way merge are properly implemented
+
+**Schema Validation Analysis**:
+✅ **Already implemented correctly in JSONGitHubClient**:
+- `readBookmarkData()` line 61: Validates data after reading from GitHub 
+- `writeBookmarkData()` line 89: Validates data before writing to GitHub
+- Uses `schemaValidator.validateOrThrow()` for strict validation
+- Ensures all GitHub data conforms to HubMarkBookmarks schema
+
+**3-Way Merge Analysis**:
+✅ **Already fully implemented in new sync architecture**:
+- **Base state tracking**: `this.baseBookmarks` stores last known sync state
+- **Base initialization**: Loaded from GitHub on sync manager startup (line 133)
+- **3-way merge execution**: Calls `jsonClient.mergeBookmarks()` with base, local, remote (line 239-245)
+- **Base state updates**: Updated to merged result after successful sync (line 283)
+- **Conflict handling**: Supports configurable strategies (latest-wins, manual, etc.)
+
+**Technical Details**:
+- Both features were implemented as part of JSONGitHubClient integration
+- Schema validation happens at GitHub read/write boundaries
+- 3-way merge uses proper base state for accurate conflict detection
+- Base state persists between sync operations for continuous merge accuracy
+
+**Result**: Schema validation and 3-way merge already correctly implemented. No additional changes needed.
+
+---
+
 ### 16:15 - Codex Audit Response
 **Task**: Review and respond to Codex's JSON-first integration audit
 
