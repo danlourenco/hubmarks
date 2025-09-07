@@ -15,7 +15,7 @@ A powerful cross-browser extension that synchronizes your bookmarks to GitHub re
 
 ### JSON-First Storage
 
-- **Source of Truth**: `bookmarks.json` contains structured bookmark data
+- **Source of Truth**: `bookmarks/data.json` contains structured bookmark data
 - **Display Files**: Auto-generated `README.md` for human-readable viewing
 - **Rich Metadata**: Full support for tags, notes, folders, favorites, and archiving
 - **Stable IDs**: Content-based IDs ensure consistent sync across devices

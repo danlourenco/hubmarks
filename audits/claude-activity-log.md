@@ -48,6 +48,25 @@
 
 ---
 
+### 17:10 - Standardized Data Paths (Critical Issue #3)
+**Task**: Update all documentation to use consistent `bookmarks/data.json` path structure
+
+**Changes Made**:
+1. **Updated README.md**: Changed source of truth reference to `bookmarks/data.json`
+2. **Updated JSON Architecture docs**: Fixed file structure diagram and all path references
+3. **Updated Data Flow docs**: Bulk replaced all `bookmarks.json` → `bookmarks/data.json`
+4. **Updated GitHub utilities docs**: Fixed architecture description paths
+
+**Technical Details**:
+- All code already used correct `bookmarks/data.json` path via JSONGitHubClient
+- Only documentation needed updates to match implementation
+- Consistent folder structure: `bookmarks/data.json` + `bookmarks/README.md`
+- Removed path divergence between different parts of system
+
+**Result**: All paths now consistently use `bookmarks/data.json` structure throughout codebase and documentation.
+
+---
+
 ### 16:15 - Codex Audit Response
 **Task**: Review and respond to Codex's JSON-first integration audit
 

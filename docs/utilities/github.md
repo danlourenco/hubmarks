@@ -183,7 +183,7 @@ const markdown = generateMarkdownContent(bookmarks, 'folder');
 
 ### JSON-First Architecture
 
-**Important**: HubMark follows a JSON-first architecture where `bookmarks.json` is the source of truth and `README.md` is auto-generated for display purposes only. Markdown parsing has been removed to maintain data integrity and prevent synchronization conflicts.
+**Important**: HubMark follows a JSON-first architecture where `bookmarks/data.json` is the source of truth and `bookmarks/README.md` is auto-generated for display purposes only. Markdown parsing has been removed to maintain data integrity and prevent synchronization conflicts.
 
 The system only generates Markdown from JSON data - it never parses Markdown back to bookmarks.
 

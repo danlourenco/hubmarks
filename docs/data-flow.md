@@ -55,9 +55,9 @@ sequenceDiagram
     Storage->>SyncMgr: Notify change
     SyncMgr->>BookmarkMgr: Get all bookmarks
     BookmarkMgr->>SyncMgr: Return StoredBookmarks[]
-    SyncMgr->>GitHub: Write bookmarks.json
+    SyncMgr->>GitHub: Write bookmarks/data.json
     GitHub->>GitHub: Generate JSON content
-    GitHub->>GitHubAPI: Create/update bookmarks.json
+    GitHub->>GitHubAPI: Create/update bookmarks/data.json
     GitHubAPI-->>GitHub: File SHA + metadata
     GitHub->>GitHub: Generate README.md from JSON
     GitHub->>GitHubAPI: Create/update README.md
@@ -80,7 +80,7 @@ sequenceDiagram
     participant Browser
     
     SyncMgr->>GitHub: Check for remote changes
-    GitHub->>GitHubAPI: Get bookmarks.json content
+    GitHub->>GitHubAPI: Get bookmarks/data.json content
     GitHubAPI-->>GitHub: JSON content + SHA
     GitHub->>GitHub: Parse JSON to StoredBookmarks
     GitHub-->>SyncMgr: Parsed StoredBookmarks[]
@@ -120,7 +120,7 @@ graph LR
     end
     
     subgraph "GitHub JSON"
-        C["bookmarks.json
+        C["bookmarks/data.json
         {
           'bookmarks': [
             {
@@ -195,7 +195,7 @@ graph LR
     end
     
     subgraph "GitHub Repository"
-        C["bookmarks.json
+        C["bookmarks/data.json
         Same bookmark content
         Identified by HubMark ID"]
     end
@@ -239,7 +239,7 @@ sequenceDiagram
     
     SM->>Local: Get cached StoredBookmarks
     Local-->>SM: Local bookmark set
-    SM->>Remote: Get bookmarks.json
+    SM->>Remote: Get bookmarks/data.json
     Remote-->>SM: Remote StoredBookmarks set
     SM->>SM: Compare by HubMark ID & dateModified
     
@@ -249,10 +249,10 @@ sequenceDiagram
             SM->>BM: Update browser bookmark
             SM->>Local: Update cache
         else Local newer
-            SM->>Remote: Update bookmarks.json
+            SM->>Remote: Update bookmarks/data.json
         end
     else Bookmark only local
-        SM->>Remote: Add to bookmarks.json
+        SM->>Remote: Add to bookmarks/data.json
     else Bookmark only remote  
         SM->>BM: Create in browser
         SM->>Local: Add to cache
@@ -384,7 +384,7 @@ sequenceDiagram
     
     Note over Queue: Batch timeout (2s)
     
-    Queue->>GitHub: Batch: All bookmarks → bookmarks.json
+    Queue->>GitHub: Batch: All bookmarks → bookmarks/data.json
     GitHub->>GitHub: Generate README.md from JSON
     GitHub-->>Queue: Single commit with both files
     Queue-->>BM: All operations completed
