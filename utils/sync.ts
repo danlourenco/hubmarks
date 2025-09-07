@@ -197,19 +197,37 @@ export class SyncManager {
       // Convert local bookmarks to HubMark format
       const localHubMark = localBookmarks.map(storedToHubMark);
 
-      // Step 2: Determine what to delete (bookmarks that existed in base but not in local)
+      // Step 2: Determine deletions
       const localIds = new Set(localHubMark.map(b => b.id));
-      const deletions: string[] = [];
+      const remoteIds = new Set(remoteBookmarks.map(b => b.id));
+      const localDeletions: string[] = [];
+      const remoteDeletions: string[] = [];
       
+      // Local deletions: bookmarks that existed in base but not in local
       if (config.direction !== 'from-github') {
         for (const baseBookmark of this.baseBookmarks) {
           if (!localIds.has(baseBookmark.id)) {
-            deletions.push(baseBookmark.id);
+            localDeletions.push(baseBookmark.id);
+          }
+        }
+      }
+      
+      // Remote deletions: bookmarks that existed in base but not in remote
+      if (config.direction === 'from-github' || config.direction === 'bidirectional') {
+        for (const baseBookmark of this.baseBookmarks) {
+          if (!remoteIds.has(baseBookmark.id)) {
+            remoteDeletions.push(baseBookmark.id);
           }
         }
       }
 
-      // Step 3: Use JSONGitHubClient's merge function
+      // Step 3: Normalize strategy naming (browser-wins -> local-wins)
+      const normalizeStrategy = (strategy: string): string => {
+        if (strategy === 'browser-wins') return 'local-wins';
+        return strategy;
+      };
+
+      // Step 4: Use JSONGitHubClient's merge function
       let mergeResult: MergeResult;
       
       if (config.direction === 'to-github') {
@@ -218,8 +236,8 @@ export class SyncManager {
           this.baseBookmarks,
           localHubMark,
           [], // Ignore remote
-          deletions,
-          'browser-wins'
+          localDeletions,
+          'local-wins' // Explicit: browser data wins
         );
       } else if (config.direction === 'from-github') {
         // One-way sync from GitHub: remote wins all
@@ -231,17 +249,17 @@ export class SyncManager {
           'github-wins'
         );
       } else {
-        // Bidirectional sync: use configured strategy directly
+        // Bidirectional sync: use configured strategy with normalization
         mergeResult = await this.jsonClient.mergeBookmarks(
           this.baseBookmarks,
           localHubMark,
           remoteBookmarks,
-          deletions,
-          config.strategy
+          localDeletions,
+          normalizeStrategy(config.strategy)
         );
       }
 
-      // Step 4: Handle conflicts
+      // Step 5: Handle conflicts
       if (mergeResult.conflicts.length > 0 && config.strategy === 'manual') {
         result.conflicts = mergeResult.conflicts.map(c => ({
           bookmarkId: c.id,
@@ -253,7 +271,7 @@ export class SyncManager {
         return result;
       }
 
-      // Step 5: Write merged data back
+      // Step 6: Write merged data back
       const newData: HubMarkData = {
         schemaVersion: 1,
         bookmarks: mergeResult.merged,
@@ -266,16 +284,16 @@ export class SyncManager {
         sha || this.lastSha
       );
 
-      // Step 6: Update README
+      // Step 7: Update README
       await this.jsonClient.updateReadmeIfChanged(newData);
 
-      // Step 7: Apply changes to browser if needed
+      // Step 8: Apply changes to browser if needed
       if (config.direction !== 'to-github') {
         const mergedStored = mergeResult.merged.map(hubMarkToStored);
-        await this.applyToLocalBookmarks(mergedStored);
+        await this.applyToLocalBookmarks(mergedStored, remoteDeletions);
       }
 
-      // Step 8: Update base state for next sync
+      // Step 9: Update base state for next sync
       this.baseBookmarks = mergeResult.merged;
       this.lastSha = newSha;
 
@@ -319,8 +337,10 @@ export class SyncManager {
 
   /**
    * Apply merged bookmarks to local browser
+   * @param bookmarks - The merged bookmarks to apply
+   * @param remoteDeletions - IDs of bookmarks deleted on remote to remove locally
    */
-  private async applyToLocalBookmarks(bookmarks: StoredBookmark[]): Promise<void> {
+  private async applyToLocalBookmarks(bookmarks: StoredBookmark[], remoteDeletions: string[] = []): Promise<void> {
     // Save to storage first
     await storageManager.saveBookmarks(bookmarks);
     
@@ -358,11 +378,26 @@ export class SyncManager {
           }
         }
         
-        // Find bookmarks to delete (in current but not in merged)
+        // Find bookmarks to delete (in current but not in merged, or explicitly deleted remotely)
+        const toDelete = new Set<string>();
+        
+        // Add bookmarks that are in current but not in merged
         for (const current of currentNormalized) {
           if (!mergedById.has(current.id)) {
-            // Bookmark was deleted - remove from browser
-            await bookmarkManager.deleteBookmark(current.id);
+            toDelete.add(current.id);
+          }
+        }
+        
+        // Add explicit remote deletions
+        for (const deletedId of remoteDeletions) {
+          toDelete.add(deletedId);
+        }
+        
+        // Delete bookmarks
+        for (const deleteId of toDelete) {
+          const current = currentById.get(deleteId);
+          if (current) {
+            await bookmarkManager.deleteBookmark(deleteId);
             console.log(`Deleted browser bookmark: ${current.title}`);
           }
         }
