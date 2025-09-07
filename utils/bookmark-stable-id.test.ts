@@ -1,70 +1,53 @@
 import { describe, it, expect } from 'vitest';
-import { BookmarkManager } from './bookmarks';
+import { generateStableId } from './stable-id';
 
 describe('Bookmark Stable ID Generation', () => {
-  let manager: BookmarkManager;
-
-  beforeEach(() => {
-    manager = new BookmarkManager();
-  });
-
   describe('Deterministic ID Generation', () => {
-    it('should generate consistent IDs for same URL and title', () => {
+    it('should generate consistent IDs for same URL and title', async () => {
       const url = 'https://example.com/page';
       const title = 'Example Page';
       
-      // Access the private method for testing
-      const generateId = (manager as any).generateStableId.bind(manager);
-      
-      const id1 = generateId(url, title);
-      const id2 = generateId(url, title);
+      const id1 = await generateStableId(url, title);
+      const id2 = await generateStableId(url, title);
       
       expect(id1).toBe(id2);
       expect(id1).toMatch(/^hm_[a-z0-9]+$/);
     });
 
-    it('should generate different IDs for different URLs', () => {
+    it('should generate different IDs for different URLs', async () => {
       const title = 'Same Title';
       
-      const generateId = (manager as any).generateStableId.bind(manager);
-      
-      const id1 = generateId('https://example.com/page1', title);
-      const id2 = generateId('https://example.com/page2', title);
+      const id1 = await generateStableId('https://example.com/page1', title);
+      const id2 = await generateStableId('https://example.com/page2', title);
       
       expect(id1).not.toBe(id2);
     });
 
-    it('should generate different IDs for different titles', () => {
+    it('should generate different IDs for different titles', async () => {
       const url = 'https://example.com/page';
       
-      const generateId = (manager as any).generateStableId.bind(manager);
-      
-      const id1 = generateId(url, 'Title One');
-      const id2 = generateId(url, 'Title Two');
+      const id1 = await generateStableId(url, 'Title One');
+      const id2 = await generateStableId(url, 'Title Two');
       
       expect(id1).not.toBe(id2);
     });
 
-    it('should ignore URL variations that canonicalize to the same', () => {
+    it('should ignore URL variations that canonicalize to the same', async () => {
       const title = 'Test Page';
       
-      const generateId = (manager as any).generateStableId.bind(manager);
-      
-      const id1 = generateId('https://example.com/page', title);
-      const id2 = generateId('https://www.example.com/page/', title);
-      const id3 = generateId('https://example.com/page?utm_source=test', title);
+      const id1 = await generateStableId('https://example.com/page', title);
+      const id2 = await generateStableId('https://www.example.com/page/', title);
+      const id3 = await generateStableId('https://example.com/page?utm_source=test', title);
       
       expect(id1).toBe(id2);
       expect(id1).toBe(id3);
     });
 
-    it('should ignore title variations that normalize to the same', () => {
+    it('should ignore title variations that normalize to the same', async () => {
       const url = 'https://example.com/page';
       
-      const generateId = (manager as any).generateStableId.bind(manager);
-      
-      const id1 = generateId(url, 'Test Page');
-      const id2 = generateId(url, '  Test   Page  ');
+      const id1 = await generateStableId(url, 'Test Page');
+      const id2 = await generateStableId(url, '  Test   Page  ');
       
       expect(id1).toBe(id2);
     });
@@ -73,25 +56,21 @@ describe('Bookmark Stable ID Generation', () => {
       const url = 'https://example.com/test';
       const title = 'Test Bookmark';
       
-      const generateId = (manager as any).generateStableId.bind(manager);
-      
       // Generate IDs with a delay to ensure timestamps would differ
-      const id1 = generateId(url, title);
+      const id1 = await generateStableId(url, title);
       
       await new Promise(resolve => setTimeout(resolve, 10));
       
-      const id2 = generateId(url, title);
+      const id2 = await generateStableId(url, title);
       
       // IDs should be identical despite time difference
       expect(id1).toBe(id2);
       expect(id1).toMatch(/^hm_[a-z0-9]+$/); // Should have format hm_hash (no additional separators)
     });
 
-    it('should handle URLs with various tracking parameters', () => {
+    it('should handle URLs with various tracking parameters', async () => {
       const title = 'Article Title';
       const baseUrl = 'https://example.com/article';
-      
-      const generateId = (manager as any).generateStableId.bind(manager);
       
       const urls = [
         baseUrl,
@@ -101,7 +80,7 @@ describe('Bookmark Stable ID Generation', () => {
         `${baseUrl}?utm_source=test&normal=keep&ref=twitter`,
       ];
       
-      const ids = urls.map(url => generateId(url, title));
+      const ids = await Promise.all(urls.map(url => generateStableId(url, title)));
       
       // First few should be identical (tracking params removed)
       expect(ids[0]).toBe(ids[1]);
@@ -110,14 +89,12 @@ describe('Bookmark Stable ID Generation', () => {
       
       // Last one might differ due to 'normal=keep' parameter
       // But should still be consistent if called again
-      const id5Again = generateId(urls[4], title);
+      const id5Again = await generateStableId(urls[4], title);
       expect(ids[4]).toBe(id5Again);
     });
 
-    it('should handle malformed URLs gracefully', () => {
+    it('should handle malformed URLs gracefully', async () => {
       const title = 'Test Title';
-      
-      const generateId = (manager as any).generateStableId.bind(manager);
       
       const malformedUrls = [
         'not-a-url',
@@ -126,25 +103,23 @@ describe('Bookmark Stable ID Generation', () => {
         'javascript:void(0)',
       ];
       
-      malformedUrls.forEach(url => {
-        const id = generateId(url, title);
+      for (const url of malformedUrls) {
+        const id = await generateStableId(url, title);
         expect(typeof id).toBe('string');
         expect(id).toMatch(/^hm_[a-z0-9]+$/);
         
         // Should be consistent
-        const id2 = generateId(url, title);
+        const id2 = await generateStableId(url, title);
         expect(id).toBe(id2);
-      });
+      }
     });
 
-    it('should produce different IDs than the old timestamp-based method', () => {
+    it('should produce different IDs than the old timestamp-based method', async () => {
       const url = 'https://example.com/test';
       const title = 'Test Page';
       
-      const generateId = (manager as any).generateStableId.bind(manager);
-      
       // Get new stable ID
-      const newId = generateId(url, title);
+      const newId = await generateStableId(url, title);
       
       // Simulate old algorithm (simplified)
       const combined = `${url}::${title}`;

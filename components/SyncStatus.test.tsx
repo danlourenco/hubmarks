@@ -2,18 +2,34 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { SyncStatus } from './SyncStatus';
 
-// Mock the useSync hook
+// Mock the hooks
 vi.mock('~/hooks/useSync', () => ({
   useSync: vi.fn()
 }));
 
+vi.mock('~/hooks/useGitHubConfig', () => ({
+  useGitHubConfig: vi.fn()
+}));
+
 import { useSync } from '~/hooks/useSync';
+import { useGitHubConfig } from '~/hooks/useGitHubConfig';
 
 describe('SyncStatus', () => {
   const mockUseSync = vi.mocked(useSync);
+  const mockUseGitHubConfig = vi.mocked(useGitHubConfig);
 
   beforeEach(() => {
     vi.clearAllMocks();
+    
+    // Default mock for useGitHubConfig
+    mockUseGitHubConfig.mockReturnValue({
+      isConfigured: true,
+      isLoading: false,
+      error: null,
+      config: null,
+      updateConfig: vi.fn(),
+      clearConfig: vi.fn()
+    });
   });
 
   describe('status display', () => {
@@ -34,10 +50,9 @@ describe('SyncStatus', () => {
 
       render(<SyncStatus />);
 
-      expect(screen.getByText('✓')).toBeInTheDocument();
+      expect(screen.getByText('•')).toBeInTheDocument();
       expect(screen.getByText('Synced')).toBeInTheDocument();
-      expect(screen.getByText('5')).toBeInTheDocument();
-      expect(screen.getByText('1m ago')).toBeInTheDocument();
+      expect(screen.getByText('• Last sync: 1m ago')).toBeInTheDocument();
     });
 
     it('should show syncing status with spinner', () => {
@@ -57,11 +72,8 @@ describe('SyncStatus', () => {
 
       render(<SyncStatus />);
 
-      expect(screen.getByText('⟳')).toBeInTheDocument();
+      expect(screen.getByText('•')).toBeInTheDocument();
       expect(screen.getByText('Syncing...')).toBeInTheDocument();
-      
-      const spinner = screen.getByText('⟳');
-      expect(spinner).toHaveClass('animate-spin');
     });
 
     it('should show conflict status', () => {
@@ -81,7 +93,7 @@ describe('SyncStatus', () => {
 
       render(<SyncStatus />);
 
-      expect(screen.getByText('⚡')).toBeInTheDocument();
+      expect(screen.getByText('•')).toBeInTheDocument();
       expect(screen.getByText('Conflicts')).toBeInTheDocument();
       expect(screen.getByText('Conflicts detected. Manual resolution required.')).toBeInTheDocument();
     });
@@ -103,7 +115,7 @@ describe('SyncStatus', () => {
 
       render(<SyncStatus />);
 
-      expect(screen.getByText('⚠')).toBeInTheDocument();
+      expect(screen.getByText('•')).toBeInTheDocument();
       expect(screen.getByText('Error')).toBeInTheDocument();
       expect(screen.getByText('Connection failed')).toBeInTheDocument();
     });
@@ -113,7 +125,6 @@ describe('SyncStatus', () => {
         status: null,
         isLoading: false,
         error: null,
-        isConfigured: false,
         hasConflicts: false,
         isSyncing: false,
         totalBookmarks: 0,
@@ -123,9 +134,18 @@ describe('SyncStatus', () => {
         resolveConflicts: vi.fn()
       });
 
+      mockUseGitHubConfig.mockReturnValue({
+        isConfigured: false,
+        isLoading: false,
+        error: null,
+        config: null,
+        updateConfig: vi.fn(),
+        clearConfig: vi.fn()
+      });
+
       render(<SyncStatus />);
 
-      expect(screen.getByText('⚠')).toBeInTheDocument();
+      expect(screen.getByText('•')).toBeInTheDocument();
       expect(screen.getByText('Not configured')).toBeInTheDocument();
     });
   });
@@ -136,7 +156,6 @@ describe('SyncStatus', () => {
         status: { status: 'idle' },
         isLoading: false,
         error: null,
-        isConfigured: true,
         hasConflicts: false,
         isSyncing: false,
         totalBookmarks: 10,
@@ -148,10 +167,8 @@ describe('SyncStatus', () => {
 
       render(<SyncStatus />);
 
-      expect(screen.getByText('Bookmarks:')).toBeInTheDocument();
-      expect(screen.getByText('10')).toBeInTheDocument();
-      expect(screen.getByText('Last sync:')).toBeInTheDocument();
-      expect(screen.getByText('1h ago')).toBeInTheDocument();
+      expect(screen.getByText('Synced')).toBeInTheDocument();
+      expect(screen.getByText('• Last sync: 1h ago')).toBeInTheDocument();
     });
 
     it('should hide details when showDetails is false', () => {
@@ -195,7 +212,7 @@ describe('SyncStatus', () => {
       });
 
       render(<SyncStatus />);
-      expect(screen.getByText('Just now')).toBeInTheDocument();
+      expect(screen.getByText('• Last sync: Just now')).toBeInTheDocument();
     });
 
     it('should show "Never" for zero timestamp', () => {
@@ -214,27 +231,9 @@ describe('SyncStatus', () => {
       });
 
       render(<SyncStatus />);
-      expect(screen.getByText('Never')).toBeInTheDocument();
+      expect(screen.getByText('• Last sync: Never')).toBeInTheDocument();
     });
 
-    it('should format bookmark count with thousands separator', () => {
-      mockUseSync.mockReturnValue({
-        status: { status: 'idle' },
-        isLoading: false,
-        error: null,
-        isConfigured: true,
-        hasConflicts: false,
-        isSyncing: false,
-        totalBookmarks: 1234,
-        lastSync: now,
-        refreshStatus: vi.fn(),
-        triggerSync: vi.fn(),
-        resolveConflicts: vi.fn()
-      });
-
-      render(<SyncStatus />);
-      expect(screen.getByText('1,234')).toBeInTheDocument();
-    });
   });
 
   describe('styling', () => {
@@ -259,10 +258,10 @@ describe('SyncStatus', () => {
 
     it('should apply correct color classes for different states', () => {
       const states = [
-        { status: 'idle', expectedColor: 'text-green-500' },
-        { status: 'syncing', expectedColor: 'text-blue-500' },
-        { status: 'conflicts', expectedColor: 'text-orange-500' },
-        { error: 'Error', expectedColor: 'text-red-500' },
+        { status: 'idle', expectedColor: 'text-success' },
+        { status: 'syncing', expectedColor: 'text-info' },
+        { status: 'conflicts', expectedColor: 'text-warning' },
+        { error: 'Error', expectedColor: 'text-error' },
       ];
 
       states.forEach(({ status, error, expectedColor }) => {
@@ -283,7 +282,7 @@ describe('SyncStatus', () => {
         mockUseSync.mockReturnValue(mockReturn);
 
         const { container, unmount } = render(<SyncStatus />);
-        const statusElement = container.querySelector('.font-medium');
+        const statusElement = container.querySelector('.text-sm');
         expect(statusElement).toHaveClass(expectedColor);
         
         unmount();

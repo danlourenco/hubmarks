@@ -244,6 +244,7 @@ export class JSONGitHubClient {
         return local.dateModified > remote.dateModified ? local : remote;
       
       case 'local-wins':
+      case 'browser-wins': // Alias for local-wins
         return local;
       
       case 'github-wins':

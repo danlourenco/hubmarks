@@ -231,17 +231,13 @@ export class SyncManager {
           'github-wins'
         );
       } else {
-        // Bidirectional sync: use configured strategy
-        const strategy = config.strategy === 'browser-wins' ? 'browser-wins' : 
-                        config.strategy === 'github-wins' ? 'github-wins' : 
-                        config.strategy;
-                        
+        // Bidirectional sync: use configured strategy directly
         mergeResult = await this.jsonClient.mergeBookmarks(
           this.baseBookmarks,
           localHubMark,
           remoteBookmarks,
           deletions,
-          strategy as any
+          config.strategy
         );
       }
 
@@ -325,15 +321,71 @@ export class SyncManager {
    * Apply merged bookmarks to local browser
    */
   private async applyToLocalBookmarks(bookmarks: StoredBookmark[]): Promise<void> {
-    // Save to storage
+    // Save to storage first
     await storageManager.saveBookmarks(bookmarks);
     
-    // If we have bookmark manager, update browser bookmarks
+    // If we have bookmark manager, apply changes to actual browser bookmarks
     if (bookmarkManager) {
-      // This would need implementation in bookmarkManager to sync back
-      // For now, just save to storage
-      console.log('Updated local bookmark cache with', bookmarks.length, 'bookmarks');
+      try {
+        // Get current browser bookmarks
+        const currentNormalized = await bookmarkManager.getAllBookmarks();
+        if (!currentNormalized || !Array.isArray(currentNormalized)) {
+          console.warn('Unable to get current browser bookmarks');
+          return;
+        }
+        const currentById = new Map(currentNormalized.map(b => [b.id, b]));
+        
+        // Convert merged bookmarks to normalized format  
+        const mergedNormalized = bookmarkManager.storedToNormalized(bookmarks);
+        if (!mergedNormalized || !Array.isArray(mergedNormalized)) {
+          console.warn('Unable to convert stored bookmarks to normalized format');
+          return;
+        }
+        const mergedById = new Map(mergedNormalized.map(b => [b.id, b]));
+        
+        // Find changes to apply
+        for (const merged of mergedNormalized) {
+          const current = currentById.get(merged.id);
+          
+          if (!current) {
+            // New bookmark - create in browser
+            await bookmarkManager.createBookmark(merged);
+            console.log(`Created browser bookmark: ${merged.title}`);
+          } else if (this.bookmarksDiffer(current, merged)) {
+            // Modified bookmark - update in browser
+            await bookmarkManager.updateBookmark(merged.id, merged);
+            console.log(`Updated browser bookmark: ${merged.title}`);
+          }
+        }
+        
+        // Find bookmarks to delete (in current but not in merged)
+        for (const current of currentNormalized) {
+          if (!mergedById.has(current.id)) {
+            // Bookmark was deleted - remove from browser
+            await bookmarkManager.deleteBookmark(current.id);
+            console.log(`Deleted browser bookmark: ${current.title}`);
+          }
+        }
+        
+        console.log(`Applied ${bookmarks.length} bookmarks to browser`);
+      } catch (error) {
+        console.error('Failed to apply bookmarks to browser:', error);
+        // Don't throw - the storage update was successful
+      }
+    } else {
+      console.log('No bookmark manager available, saved to cache only');
     }
+  }
+
+  /**
+   * Compare two normalized bookmarks for differences
+   */
+  private bookmarksDiffer(a: NormalizedBookmark, b: NormalizedBookmark): boolean {
+    return a.title !== b.title ||
+           a.url !== b.url ||
+           a.folderPath !== b.folderPath ||
+           a.notes !== b.notes ||
+           JSON.stringify(a.tags.sort()) !== JSON.stringify(b.tags.sort());
   }
 
   /**
