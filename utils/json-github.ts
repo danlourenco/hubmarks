@@ -2,9 +2,10 @@ import { GitHubClient } from './github';
 import { HubMarkData, HubMarkBookmark, schemaValidator, createEmptyData } from './json-schema';
 import type { GitHubConfig } from './storage';
 import type { ConflictStrategy } from './sync';
+import { encodeBase64 as browserSafeEncode, decodeBase64 as browserSafeDecode } from './base64';
 
 // Re-export base64 functions for consistency
-export { encodeBase64 as browserSafeEncode, decodeBase64 as browserSafeDecode } from './base64';
+export { browserSafeEncode, browserSafeDecode };
 
 /**
  * Conflict information

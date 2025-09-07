@@ -398,18 +398,23 @@ export default defineBackground(() => {
       
       try {
         if (syncManager) {
-          await syncManager.queueOperation({
-            type: 'sync',
-            config: {
-              direction: 'bidirectional',
-              strategy: 'latest-wins',
-              batchSize: 50,
-              retryAttempts: 3,
-              retryDelay: 1000,
-            }
+          await updateBadge('syncing');
+          
+          const result = await syncManager.performSync({
+            direction: 'bidirectional',
+            strategy: 'latest-wins',
+            batchSize: 50,
+            retryAttempts: 3,
+            retryDelay: 1000,
           });
           
-          await updateBadge();
+          if (result.success) {
+            await updateBadge('success');
+          } else if (result.conflicts.length > 0) {
+            await updateBadge('conflicts');
+          } else {
+            await updateBadge('error');
+          }
         }
       } catch (error) {
         console.error('Sync operation failed:', error);

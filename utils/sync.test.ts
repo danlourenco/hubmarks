@@ -107,8 +107,8 @@ describe('SyncManager', () => {
       const mockClient = {
         authenticate: vi.fn().mockResolvedValue({ login: 'testuser' }),
         getFileContent: vi.fn().mockRejectedValue(new Error('File not found')),
-        createFile: vi.fn().mockResolvedValue({ sha: 'abc123' }),
-        updateFile: vi.fn().mockResolvedValue({ sha: 'def456' }),
+        createFile: vi.fn().mockResolvedValue({ content: { sha: 'abc123' } }),
+        updateFile: vi.fn().mockResolvedValue({ content: { sha: 'def456' } }),
       };
       
       vi.mocked(GitHubClient).mockImplementation(() => mockClient as any);
@@ -148,7 +148,6 @@ describe('SyncManager', () => {
       expect(status).toEqual({
         status: 'idle',
         lastSync: 1234567890,
-        queueLength: 0,
         isGitHubConfigured: false,
         totalBookmarks: 1,
       });
