@@ -1,5 +1,5 @@
 import type { StoredBookmark } from './storage';
-import { generateStableId } from './stable-id';
+import { generateStableId, canonicalUrl, normalizeTitle } from './stable-id';
 
 /**
  * Browser-specific bookmark format (Chrome/Firefox/Edge WebExtensions API)
@@ -133,7 +133,7 @@ export class BookmarkManager {
       console.log('📚 [BookmarkManager] Raw bookmark tree:', JSON.stringify(tree, null, 2));
       
       const normalized: NormalizedBookmark[] = [];
-      this.traverseBookmarkTree(tree[0], '', normalized);
+      await this.traverseBookmarkTree(tree[0], '', normalized);
       console.log('📚 [BookmarkManager] Normalized bookmarks:', normalized.length, normalized);
       return normalized;
     } catch (error: any) {
@@ -149,31 +149,22 @@ export class BookmarkManager {
    * @param parentPath - Parent folder path
    * @param result - Array to collect normalized bookmarks
    */
-  private traverseBookmarkTree(
+  private async traverseBookmarkTree(
     node: BrowserBookmark,
     parentPath: string,
     result: NormalizedBookmark[]
-  ): void {
+  ): Promise<void> {
     // Skip root node and empty folders
     if (!node.title && !node.url) {
       if (node.children) {
-        node.children.forEach(child => this.traverseBookmarkTree(child, '', result));
+        await Promise.all(node.children.map(child => this.traverseBookmarkTree(child, '', result)));
       }
       return;
     }
 
-    // Exclude special root folders from path construction
-    const specialRootFolders = [
-      'Bookmarks Bar', 'Other Bookmarks', 'Mobile Bookmarks',  // Chrome
-      'Bookmarks Menu', 'Favorites', 'Reading List', 'Bookmarks'  // Safari
-    ];
-    
-    const isSpecialFolder = specialRootFolders.includes(node.title);
-    const currentPath = isSpecialFolder ? '' : (parentPath ? `${parentPath}/${node.title}` : node.title);
-
     if (node.url) {
-      // It's a bookmark
-      const normalized = this.browserToNormalized(node, currentPath);
+      // It's a bookmark - use parent path, not current
+      const normalized = await this.browserToNormalized(node, parentPath);
       result.push(normalized);
       
       // Update ID mapping
@@ -183,8 +174,9 @@ export class BookmarkManager {
         lastSynced: Date.now()
       });
     } else if (node.children) {
-      // It's a folder - traverse children
-      node.children.forEach(child => this.traverseBookmarkTree(child, currentPath, result));
+      // It's a folder - calculate path and traverse children  
+      const currentPath = parentPath ? `${parentPath}/${node.title}` : node.title;
+      await Promise.all(node.children.map(child => this.traverseBookmarkTree(child, currentPath, result)));
     }
   }
 
@@ -195,15 +187,18 @@ export class BookmarkManager {
    * @param folderPath - Folder path for this bookmark
    * @returns Normalized bookmark
    */
-  private browserToNormalized(
+  private async browserToNormalized(
     browserBookmark: BrowserBookmark,
     folderPath: string
-  ): NormalizedBookmark {
+  ): Promise<NormalizedBookmark> {
     const { tags, notes } = this.extractMetadata(browserBookmark.title);
     const cleanTitle = this.cleanTitle(browserBookmark.title);
     
+    // Use the proper 32-char stable ID generation
+    const id = await generateStableId(browserBookmark.url!, cleanTitle);
+    
     return {
-      id: this.generateStableId(browserBookmark.url!, cleanTitle),
+      id,
       browserId: browserBookmark.id,
       title: cleanTitle,
       url: browserBookmark.url!,
@@ -216,31 +211,6 @@ export class BookmarkManager {
     };
   }
 
-  /**
-   * Generate a stable ID for a bookmark based on URL and title
-   * 
-   * Uses the same algorithm as utils/github.ts for consistency across all ID generation
-   * 
-   * @param url - Bookmark URL
-   * @param title - Bookmark title  
-   * @returns Stable ID string (deterministic, consistent)
-   */
-  private generateStableId(url: string, title: string): string {
-    const canonical = canonicalUrl(url);
-    const normalized = normalizeTitle(title);
-    const combined = `${canonical}|${normalized}`;
-    
-    // Simple hash function for synchronous ID generation (same as github.ts)
-    let hash = 0;
-    for (let i = 0; i < combined.length; i++) {
-      const char = combined.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32-bit integer
-    }
-    
-    // Convert to positive hex and add prefix
-    return `hm_${Math.abs(hash).toString(16).padStart(8, '0')}`;
-  }
 
   /**
    * Extract tags and notes from bookmark title
@@ -365,7 +335,7 @@ export class BookmarkManager {
       });
       
       // Convert back to normalized format
-      const normalized = this.browserToNormalized(created, bookmark.folderPath || '');
+      const normalized = await this.browserToNormalized(created, bookmark.folderPath || '');
       
       // Save ID mapping
       this.idMappings.set(created.id, {
@@ -403,7 +373,7 @@ export class BookmarkManager {
       
       // Get current bookmark to merge with changes
       const current = await browser.bookmarks.get(mapping.browserId);
-      const currentNormalized = this.browserToNormalized(current[0], '');
+      const currentNormalized = await this.browserToNormalized(current[0], '');
       
       // Update browser bookmark
       const updates: any = {};
@@ -422,7 +392,7 @@ export class BookmarkManager {
       
       // Get updated bookmark
       const updated = await browser.bookmarks.get(mapping.browserId);
-      return this.browserToNormalized(updated[0], changes.folderPath || currentNormalized.folderPath);
+      return await this.browserToNormalized(updated[0], changes.folderPath || currentNormalized.folderPath);
     } catch (error: any) {
       throw new Error(`Failed to update bookmark: ${error.message}`);
     }

@@ -2,6 +2,55 @@
 
 ## 2025-09-07
 
+### 16:30 - Fixed ID Generation (Critical Issue #1)
+**Task**: Fix ID generation to produce 32-char hashes instead of 8-char
+
+**Changes Made**:
+1. Updated `utils/bookmarks.ts` to use async `generateStableId()` from `stable-id.ts`
+2. Removed local synchronous hash function that only produced 8 hex chars
+3. Made `browserToNormalized()` and `traverseBookmarkTree()` async
+4. Fixed folder path bug where bookmark titles were incorrectly included in paths
+
+**Technical Details**:
+- Old: `hm_${Math.abs(hash).toString(16).padStart(8, '0')}` (8 hex chars)
+- New: `hm_${sha256Hash.substring(0, 32)}` (32 hex chars from SHA-256)
+- Now complies with JSON schema requirement: `^hm_[a-z0-9]{32,}$`
+
+**Tests**: ✅ All 24 bookmark tests passing
+
+**Result**: Schema-compliant IDs now generated throughout the system
+
+---
+
+### 16:15 - Codex Audit Response
+**Task**: Review and respond to Codex's JSON-first integration audit
+
+**Audit Findings Reviewed**:
+1. **JSONGitHubClient not integrated** - ACCEPTED: Critical gap in architecture
+2. **Path divergence** - ACCEPTED: `bookmarks.json` vs `bookmarks/data.json` inconsistency  
+3. **Double encoding** - NEEDS VERIFICATION: Potential encoding bug
+4. **8-char vs 32-char IDs** - ACCEPTED: Schema violation issue
+5. **No deletion detection** - PARTIALLY ACCEPTED: Needs 3-way merge
+6. **Strategy naming** - ACCEPTED: Mostly fixed already
+7. **Dual implementations** - ACCEPTED: Most critical issue
+
+**Response**: Created comprehensive audit response document analyzing each point
+
+**Action Priorities Established**:
+- CRITICAL: Consolidate on JSONGitHubClient, Fix ID generation
+- HIGH: Standardize paths, Fix encoding
+- MEDIUM: Implement 3-way merge, Add validation
+- LOW: Strategy naming, Migration utilities
+
+**Files Created**:
+- `/audits/claude-response-2025-09-07.md` - Full audit response
+
+**Result**: ✅ Audit reviewed, priorities established for fixing architectural issues
+
+---
+
+## 2025-09-07
+
 ### 15:45 - Architecture Cleanup Initiative
 **Task**: Clean up old non-JSON architecture references from codebase and documentation
 
@@ -18,7 +67,7 @@
 - [x] Update test mocks
 - [x] Clean documentation
 - [x] Improve UX language
-- [ ] Commit and push changes
+- [x] Commit and push changes
 
 **Actions Completed**:
 
@@ -33,3 +82,5 @@
    - Changed "⟷ Two-way sync" to "⟷ Browser ⟷ GitHub sync" in `components/SyncControls.tsx:81`
 
 **Context**: Following JSON-first architecture implementation, removing all references to old bidirectional Markdown-parsing sync approach.
+
+**Result**: ✅ Architecture cleanup complete. All old references removed. Codebase now fully consistent with JSON-first approach. Changes pushed to GitHub (commit: 5f9119a).
