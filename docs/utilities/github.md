@@ -181,57 +181,11 @@ const markdown = generateMarkdownContent(bookmarks, 'folder');
 - [GitHub](https://github.com)
 ```
 
-### Markdown to Bookmarks Parsing
+### JSON-First Architecture
 
-The reverse process parses Markdown back to structured data:
+**Important**: HubMark follows a JSON-first architecture where `bookmarks.json` is the source of truth and `README.md` is auto-generated for display purposes only. Markdown parsing has been removed to maintain data integrity and prevent synchronization conflicts.
 
-```typescript
-const markdown = `
-# Bookmarks
-
-- [React Documentation](https://reactjs.org)
-  *Tags: react, javascript*
-  *Notes: Official React docs*
-  *Folder: Development*
-`;
-
-const bookmarks = parseMarkdownContent(markdown);
-// Returns StoredBookmark[] with extracted metadata
-```
-
-**Parsing Logic**:
-```typescript
-export function parseMarkdownContent(content: string): StoredBookmark[] {
-  const bookmarks: StoredBookmark[] = [];
-  const lines = content.split('\n');
-  
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-    
-    // Match: - [Title](URL)
-    const linkMatch = line.match(/^-\s*\[([^\]]+)\]\(([^)]+)\)/);
-    if (linkMatch) {
-      const [, title, url] = linkMatch;
-      
-      // Extract metadata from following lines
-      const metadata = extractMetadataLines(lines, i + 1);
-      
-      bookmarks.push({
-        id: generateImportId(),
-        title,
-        url,
-        tags: metadata.tags,
-        notes: metadata.notes,
-        folder: metadata.folder,
-        dateAdded: Date.now(),
-        dateModified: Date.now(),
-      });
-    }
-  }
-  
-  return bookmarks;
-}
-```
+The system only generates Markdown from JSON data - it never parses Markdown back to bookmarks.
 
 ## Utility Functions
 

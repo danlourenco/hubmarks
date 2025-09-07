@@ -1,6 +1,6 @@
 import { storageManager } from './storage';
 import { bookmarkManager } from './bookmarks';
-import { GitHubClient, generateMarkdownContent, parseMarkdownContent } from './github';
+import { GitHubClient, generateMarkdownContent } from './github';
 import type { StoredBookmark, GitHubConfig } from './storage';
 import type { NormalizedBookmark, BookmarkChanges } from './bookmarks';
 

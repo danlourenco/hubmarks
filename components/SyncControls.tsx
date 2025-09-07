@@ -78,7 +78,7 @@ export function SyncControls({
             className="select select-bordered select-sm w-full"
             disabled={isSyncing}
           >
-            <option value="bidirectional">⟷ Two-way sync</option>
+            <option value="bidirectional">⟷ Browser ⟷ GitHub sync</option>
             <option value="to-github">→ Browser to GitHub</option>
             <option value="from-github">← GitHub to Browser</option>
           </select>

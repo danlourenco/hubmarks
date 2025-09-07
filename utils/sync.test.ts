@@ -30,8 +30,7 @@ vi.mock('./github', () => ({
     createFile: vi.fn(),
     updateFile: vi.fn(),
   })),
-  generateMarkdownContent: vi.fn(() => '# Bookmarks\n\n- [Test](https://example.com)'),
-  parseMarkdownContent: vi.fn(() => [])
+  generateMarkdownContent: vi.fn(() => '# Bookmarks\n\n- [Test](https://example.com)')
 }));
 
 // Import after mocking

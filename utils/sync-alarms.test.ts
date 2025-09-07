@@ -21,7 +21,6 @@ vi.mock('./bookmarks', () => ({
 vi.mock('./github', () => ({
   GitHubClient: vi.fn(),
   generateMarkdownContent: vi.fn(),
-  parseMarkdownContent: vi.fn(),
 }));
 
 describe('SyncManager Chrome Alarms Integration', () => {
