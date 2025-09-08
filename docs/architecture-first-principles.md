@@ -98,7 +98,7 @@ flowchart LR
   UI[UI: Popup/Options]
   Hooks[React Hooks]
   App[Application: Sync Engine]
-  Dom[Domain (pure)]
+  Dom[Domain]
   GH[Adapter: GitHub Repo]
   BR[Adapter: Browser Bookmarks]
   ST[Adapter: Storage]
